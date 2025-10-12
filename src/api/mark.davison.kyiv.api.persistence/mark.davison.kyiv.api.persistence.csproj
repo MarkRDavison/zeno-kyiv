@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0-rc.1.25451.107" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\shared\mark.davison.kyiv.shared.models\mark.davison.kyiv.shared.models.csproj" />
+    <ProjectReference Include="..\mark.davison.kyiv.api.models.configuration\mark.davison.kyiv.api.models.configuration.csproj" />
+  </ItemGroup>
+
+</Project>
