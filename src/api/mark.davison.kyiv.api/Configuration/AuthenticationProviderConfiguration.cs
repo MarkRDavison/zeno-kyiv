@@ -10,5 +10,6 @@ public class AuthenticationProviderConfiguration
     public string? AuthorizationEndpoint { get; init; }
     public string? TokenEndpoint { get; init; }
     public string? UserInformationEndpoint { get; init; }
+    public string? EndSessionEndpoint { get; init; }
     public string[]? Scope { get; init; }
 }

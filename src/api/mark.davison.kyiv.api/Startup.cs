@@ -46,10 +46,10 @@ public sealed class Startup
             .AddLogging()
             .AddAuthentication(options =>
             {
-                options.DefaultScheme = AppSettings.AUTHENTICATION.DefaultScheme ?? CookieAuthenticationDefaults.AuthenticationScheme;
-                options.DefaultChallengeScheme = AppSettings.AUTHENTICATION.DefaultChallengeScheme ?? OpenIdConnectDefaults.AuthenticationScheme;
+                options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
             })
-            .AddCookie(AppSettings.AUTHENTICATION.DefaultScheme ?? CookieAuthenticationDefaults.AuthenticationScheme);
+            .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme);
 
 
         services
@@ -81,8 +81,6 @@ public sealed class Startup
                             RoleClaimType = ClaimTypes.Role
                         };
                         options.Events = CreateOidcEvents(p.Name);
-                        options.TokenValidationParameters.NameClaimType = "name";
-                        options.TokenValidationParameters.RoleClaimType = "role";
                     });
             }
             else if (string.Equals(p.Type, "oauth", StringComparison.OrdinalIgnoreCase))
@@ -202,9 +200,35 @@ public sealed class Startup
                 // --- START LOGIN ---
                 endpoints.MapGet("/account/login/{provider}", (string provider, HttpContext ctx) =>
                 {
-                    var redirectUrl = "/account/postlogin";
-                    var props = new AuthenticationProperties { RedirectUri = redirectUrl };
-                    return Results.Challenge(props, new[] { provider });
+                    var isAuth = ctx.User.Identity?.IsAuthenticated == true;
+
+                    // Dump claims
+                    var claimsHtml = "<ul>";
+                    foreach (var c in ctx.User.Claims)
+                        claimsHtml += $"<li>{c.Type}: {c.Value}</li>";
+                    claimsHtml += "</ul>";
+
+                    // Dump cookies
+                    var cookiesHtml = "<ul>";
+                    foreach (var cookie in ctx.Request.Cookies)
+                        cookiesHtml += $"<li>{cookie.Key}: {cookie.Value}</li>";
+                    cookiesHtml += "</ul>";
+
+                    // Dump auth info
+                    var authType = ctx.User.Identity?.AuthenticationType ?? "(null)";
+
+                    var html = $@"
+        <h3>Post-login Debug</h3>
+        <p>Authenticated: {isAuth}</p>
+        <p>AuthenticationType: {authType}</p>
+        <h4>Claims</h4>
+        {claimsHtml}
+        <h4>Cookies</h4>
+        {cookiesHtml}
+        <a href=""/account/profile"">Go to Profile</a>
+    ";
+
+                    return Results.Content(html, "text/html");
                 });
 
                 // --- POST LOGIN LANDING ---
@@ -232,8 +256,10 @@ public sealed class Startup
                     var html = $"""
         <h2>Profile</h2>
         <p>Signed in as {ctx.User.Identity?.Name}</p>
+        <p>You have the following external authentication providers registered with this account</p>
         <ul>{list}</ul>
         <h3>Link a new provider</h3>
+        <!-- TODO: exclude already linked -->
         <a href="/account/link/google">Link Google</a><br/>
         <a href="/account/link/github">Link GitHub</a><br/>
         <a href="/account/link/microsoft">Link Microsoft</a><br/>
@@ -272,10 +298,50 @@ public sealed class Startup
                 // --- LOGOUT ---
                 endpoints.MapGet("/account/logout", async (HttpContext ctx) =>
                 {
-                    if (ctx.User.Identity?.IsAuthenticated == true)
-                        await ctx.SignOutAsync();
+                    if (ctx.User.Identity?.IsAuthenticated is not true)
+                    {
+                        return Results.Redirect("/");
+                    }
+
+                    await ctx.SignOutAsync(AppSettings.AUTHENTICATION.DefaultScheme);
+
+                    // 2️⃣ Attempt automatic OIDC logout for providers with a SignInScheme
+                    foreach (var p in AppSettings.AUTHENTICATION.Providers)
+                    {
+                        if (!string.Equals(p.Type, "oidc", StringComparison.OrdinalIgnoreCase))
+                            continue;
+
+                        // Check if the scheme is registered
+                        var schemes = ctx.RequestServices.GetRequiredService<IAuthenticationSchemeProvider>();
+                        var scheme = await schemes.GetSchemeAsync(p.Name);
+                        if (scheme == null) continue; // skip unregistered
+
+                        // Use SignOutAsync for this scheme; the middleware will use metadata if available
+                        try
+                        {
+                            var props = new AuthenticationProperties
+                            {
+                                RedirectUri = "/account/logout-complete" // user lands here after provider logout
+                            };
+                            await ctx.SignOutAsync(p.Name, props);
+                            // Only one redirect can happen, stop loop
+                            return Results.Redirect("/");
+                        }
+                        catch
+                        {
+                            // fallback: if the OIDC handler cannot redirect (e.g. no EndSessionEndpoint), ignore
+                            continue;
+                        }
+                    }
 
                     return Results.Redirect("/");
+                });
+
+                endpoints.MapGet("/account/logout-complete", async (HttpContext ctx) =>
+                {
+                    await Task.CompletedTask;
+
+                    return Results.Redirect("/"); // now the user can login with another provider
                 });
             });
     }
@@ -294,6 +360,11 @@ public sealed class Startup
 
                 return Task.CompletedTask;
             },
+            OnAuthenticationFailed = context =>
+            {
+                Console.WriteLine("OIDC failed: " + context.Exception);
+                return Task.CompletedTask;
+            },
             OnTokenValidated = async context =>
             {
                 var http = context.HttpContext;
@@ -304,6 +375,9 @@ public sealed class Startup
                     ?? throw new InvalidDataException("NO PROVIDER SUBJECT");
                 var email = context.Principal.FindFirst(ClaimTypes.Email)?.Value
                     ?? throw new InvalidDataException("NO EMAIL FROM CLAIM");
+
+                Console.WriteLine($"[DEBUG] Identity.AuthenticationType: {context.Principal.Identity?.AuthenticationType}");
+                Console.WriteLine($"[DEBUG] Cookie Properties: {JsonSerializer.Serialize(context.Properties.Items)}");
 
                 // Handle linking flow
                 if (IsLinking(context.Properties))
@@ -376,7 +450,7 @@ public sealed class Startup
                     await db.SaveChangesAsync();
                 }
 
-                // Replace the existing NameIdentifier (provider sub) with our internal user ID
+                // Replace NameIdentifier
                 var identity = (ClaimsIdentity)context.Principal.Identity!;
                 var oldSub = identity.FindFirst(ClaimTypes.NameIdentifier);
                 if (oldSub != null)
@@ -384,13 +458,18 @@ public sealed class Startup
 
                 identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()));
 
-                // Add app-specific roles
+                // Add roles
                 var roleService = http.RequestServices.GetRequiredService<IUserRoleService>();
                 var roles = await roleService.GetRolesForUserAsync(user.Id);
-                foreach (var role in roles)
-                {
-                    identity.AddClaim(new Claim(ClaimTypes.Role, role));
-                }
+                foreach (var r in roles)
+                    identity.AddClaim(new Claim(ClaimTypes.Role, r));
+
+                // ✅ Explicitly sign in to issue cookie
+                await http.SignInAsync(
+                    CookieAuthenticationDefaults.AuthenticationScheme,
+                    new ClaimsPrincipal(identity),
+                    context.Properties
+                );
             }
         };
     }
@@ -486,6 +565,14 @@ public sealed class Startup
                 foreach (var r in roles) context.Identity.AddClaim(new Claim(ClaimTypes.Role, r));
                 // add name identifier
                 context.Identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()));
+
+
+                // ✅ Explicitly sign in to issue cookie
+                await http.SignInAsync(
+                    CookieAuthenticationDefaults.AuthenticationScheme,
+                    new ClaimsPrincipal(context.Identity),
+                    context.Properties
+                );
             }
         };
     }
