@@ -254,7 +254,25 @@ public sealed class Startup
     """;
                 return Results.Content(html, "text/html");
             });
+
+            endpoints.MapGet("/account/linkerror", (HttpContext ctx) =>
+            {
+                ctx.Response.ContentType = "text/html";
+
+                var message = ctx.Request.Query["message"].ToString();
+                if (string.IsNullOrEmpty(message) && ctx.Items["LinkError"] is string tempMsg)
+                    message = tempMsg;
+
+                var html = $"""
+        <h3>Linking Error</h3>
+        <p>{message ?? "An unknown error occurred while linking the account."}</p>
+        <a href='/account/profile'>Back to profile</a>
+    """;
+                return Results.Content(html, "text/html");
+            });
         });
+
+
     }
 
     private OpenIdConnectEvents CreateOidcEvents(string providerName)
@@ -308,8 +326,13 @@ public sealed class Startup
                     {
                         if (existingLink?.UserId != user.Id)
                         {
-                            // The provider account is already linked to a different user
-                            context.Fail($"This {provider} account is already linked to another user.");
+                            // Store error message in temp property to show after redirect
+                            context.Properties.Items["LinkError"] = $"This {provider} account is already linked to another user.";
+
+                            // Redirect back to profile (or a dedicated page)
+                            context.Response.Redirect($"/account/linkerror?message={Uri.EscapeDataString(context.Properties.Items["LinkError"])}");
+
+                            context.HandleResponse(); // prevent further processing
                             return;
                         }
                     }
@@ -405,8 +428,12 @@ public sealed class Startup
                     {
                         if (existingLink?.UserId != user.Id)
                         {
-                            // The provider account is already linked to a different user
-                            context.Fail($"This {provider} account is already linked to another user.");
+                            // Store error message in temp property to show after redirect
+                            context.Properties.Items["LinkError"] = $"This {provider} account is already linked to another user.";
+
+                            // Redirect back to profile (or a dedicated page)
+                            context.Response.Redirect($"/account/linkerror?message={Uri.EscapeDataString(context.Properties.Items["LinkError"])}");
+
                             return;
                         }
                     }
