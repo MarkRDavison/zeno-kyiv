@@ -6,4 +6,5 @@ public class AppSettings
 
     public bool PRODUCTION_MODE { get; set; }
     public AuthenticationSetings AUTHENTICATION { get; set; } = new();
+    public RedisSettings REDIS { get; set; } = new();
 }

@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
+using StackExchange.Redis;
 using System.Security.Claims;
 using System.Text.Json;
 
@@ -40,10 +41,49 @@ public sealed class Startup
             .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme);
 
         services
-            .AddScoped<IUserService, UserService>()
-            .AddScoped<IUserRoleService, UserRoleService>();
+            .AddMemoryCache();
 
-        services.AddMemoryCache();
+        services
+            .AddOptions<CookieAuthenticationOptions>(CookieAuthenticationDefaults.AuthenticationScheme)
+            .Configure<ITicketStore>((_, store) =>
+            {
+                _.SessionStore = store;
+                _.Events.OnValidatePrincipal = async context =>
+                {
+                    var ticket = context.Properties;
+
+                    var accessToken = ticket.GetTokenValue("access_token");
+                    var refreshToken = ticket.GetTokenValue("refresh_token");
+                    var expiresAt = DateTime.Parse(ticket.GetTokenValue("expires_at"));
+                    var client_id = ticket.Items.FirstOrDefault(_ => _.Key == "client_id").Value;
+                    var client_secret = ticket.Items.FirstOrDefault(_ => _.Key == "client_secret").Value;
+                    var token_endpoint = ticket.Items.FirstOrDefault(_ => _.Key == "token_endpoint").Value;
+
+                    if (/*DateTime.UtcNow > expiresAt && */store is RedisTicketStore redisStore)
+                    {
+                        var newTokens = await redisStore.RefreshTokensAsync(refreshToken, client_id, client_secret, token_endpoint);
+                        ticket.StoreTokens(newTokens);
+                        context.ShouldRenew = true; // persist updated ticket
+                    }
+                };
+            });
+
+        services
+            .AddScoped<IUserService, UserService>()
+            .AddScoped<IUserRoleService, UserRoleService>()
+            .AddSingleton<ITicketStore, RedisTicketStore>();
+
+        var config = new ConfigurationOptions
+        {
+            EndPoints = { AppSettings.REDIS.HOST + ":" + AppSettings.REDIS.PORT },
+            Password = AppSettings.REDIS.PASSWORD
+        };
+        IConnectionMultiplexer redis = ConnectionMultiplexer.Connect(config);
+        services.AddStackExchangeRedisCache(_ =>
+        {
+            _.InstanceName = "zeno_kyiv_dev_";
+            _.Configuration = redis.Configuration;
+        });
 
         foreach (var p in AppSettings.AUTHENTICATION.Providers)
         {
@@ -553,9 +593,16 @@ public sealed class Startup
                 identity.AddClaim(new Claim("InternalUserId", user.Id.ToString()));
                 identity.AddClaim(new Claim("LoggedInProvider", provider));
 
+                context.Properties.Items["provider"] = providerName;
+                context.Properties.Items["client_id"] = context.Options.ClientId;
+                context.Properties.Items["client_secret"] = context.Options.ClientSecret;
+                context.Properties.Items["token_endpoint"] = context.Options.Authority + "/protocol/openid-connect/token"; // adjust per provider
+
                 var roles = await roleService.GetRolesForUserAsync(user.Id);
                 foreach (var r in roles)
+                {
                     identity.AddClaim(new Claim(ClaimTypes.Role, r));
+                }
             }
         };
     }
@@ -653,12 +700,24 @@ public sealed class Startup
 
                 var roles = await roleService.GetRolesForUserAsync(user.Id);
                 foreach (var r in roles)
+                {
                     identity.AddClaim(new Claim(ClaimTypes.Role, r));
+                }
+
+                // Cookie is issued manually here
+                var props = new AuthenticationProperties
+                {
+                    IsPersistent = true
+                };
+                props.Items["provider"] = providerName;
+                props.Items["client_id"] = context.Options.ClientId;
+                props.Items["client_secret"] = context.Options.ClientSecret;
+                props.Items["token_endpoint"] = context.Options.TokenEndpoint;
 
                 await http.SignInAsync(
                     CookieAuthenticationDefaults.AuthenticationScheme,
                     new ClaimsPrincipal(identity),
-                    new AuthenticationProperties { IsPersistent = true });
+                    props);
             }
         };
     }
