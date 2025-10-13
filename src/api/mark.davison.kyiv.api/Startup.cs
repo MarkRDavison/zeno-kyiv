@@ -172,7 +172,9 @@ public sealed class Startup
 
                 var userId = Guid.Parse(internalId);
                 var user = await users.GetUserByIdAsync(userId);
-                var list = string.Join("", user.ExternalLogins.Select(p => $"<li>{p.Provider}</li>"));
+                var list = string.Join("", user.ExternalLogins.Select(p =>
+                    $"<li>{p.Provider} <a href='/account/unlink/{p.Provider}'>Unlink</a></li>"
+                ));
                 var linkedProviders = user.ExternalLogins.Select(l => l.Provider).ToHashSet();
                 var allProviders = AppSettings.AUTHENTICATION.Providers.Select(p => p.Name);
 
@@ -185,7 +187,7 @@ public sealed class Startup
     <p>Signed in as {ctx.User.Identity?.Name}</p>
     <p>Your internal user ID: {userId}</p>
     <p>External providers linked:</p>
-    <ul>{string.Join("", user.ExternalLogins.Select(p => $"<li>{p.Provider}</li>"))}</ul>
+    {list}
     <p>Link new provider:</p>
     <ul>{linkButtons}</ul>
     <a href='/account/logout'>Logout</a>
@@ -310,6 +312,40 @@ public sealed class Startup
         <p>{message ?? "An unknown error occurred while linking the account."}</p>
         <a href='/account/profile'>Back to profile</a>
     """;
+                return Results.Content(html, "text/html");
+            });
+
+            endpoints.MapGet("/account/unlink/{provider}", async (string provider, HttpContext ctx, [FromServices] KyivDbContext db, [FromServices] IUserService users) =>
+            {
+                if (ctx.User.Identity?.IsAuthenticated != true)
+                    return Results.Redirect("/account/login");
+
+                var internalId = ctx.User.FindFirstValue("InternalUserId");
+                if (internalId == null) return Results.Problem("No InternalUserId claim found");
+
+                var userId = Guid.Parse(internalId);
+
+                var userExternalLogins = await db.ExternalLogins
+                    .Where(l => l.UserId == userId)
+                    .ToListAsync();
+
+                if (!userExternalLogins.Any())
+                    return Results.Problem("No linked providers found for this user");
+
+                if (userExternalLogins.Count == 1)
+                    return Results.Content("<p>Cannot unlink the last provider. You must have at least one linked account.</p><a href='/account/profile'>Back to profile</a>", "text/html");
+
+                var externalLogin = userExternalLogins.FirstOrDefault(l => l.Provider == provider);
+                if (externalLogin == null)
+                    return Results.Content($"<p>No linked account for provider '{provider}'</p><a href='/account/profile'>Back to profile</a>", "text/html");
+
+                db.ExternalLogins.Remove(externalLogin);
+                await db.SaveChangesAsync();
+
+                var html = $@"
+        <p>Unlinked {provider} successfully.</p>
+        <a href='/account/profile'>Back to profile</a>
+    ";
                 return Results.Content(html, "text/html");
             });
         });
