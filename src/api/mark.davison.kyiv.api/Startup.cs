@@ -173,15 +173,24 @@ public sealed class Startup
                 var userId = Guid.Parse(internalId);
                 var user = await users.GetUserByIdAsync(userId);
                 var list = string.Join("", user.ExternalLogins.Select(p => $"<li>{p.Provider}</li>"));
+                var linkedProviders = user.ExternalLogins.Select(l => l.Provider).ToHashSet();
+                var allProviders = AppSettings.AUTHENTICATION.Providers.Select(p => p.Name);
+
+                var linkButtons = string.Join("", allProviders
+                    .Where(p => !linkedProviders.Contains(p))
+                    .Select(p => $"<li><a href='/account/link/{p}'>Link {p}</a></li>"));
 
                 var html = $"""
-                    <h2>Profile</h2>
-                    <p>Signed in as {ctx.User.Identity?.Name}</p>
-                    <p>Your internal user ID: {userId}</p>
-                    <p>External providers linked:</p>
-                    <ul>{list}</ul>
-                    <a href='/account/logout'>Logout</a>
-                """;
+    <h2>Profile</h2>
+    <p>Signed in as {ctx.User.Identity?.Name}</p>
+    <p>Your internal user ID: {userId}</p>
+    <p>External providers linked:</p>
+    <ul>{string.Join("", user.ExternalLogins.Select(p => $"<li>{p.Provider}</li>"))}</ul>
+    <p>Link new provider:</p>
+    <ul>{linkButtons}</ul>
+    <a href='/account/logout'>Logout</a>
+""";
+
                 return Results.Content(html, "text/html");
             });
 
@@ -226,19 +235,52 @@ public sealed class Startup
                 return Results.Content(html, "text/html");
             });
 
-            endpoints.MapGet("/account/link/{provider}", (string provider, HttpContext http) =>
+            endpoints.MapGet("/account/link/callback/{provider}", async (string provider, HttpContext ctx, [FromServices] KyivDbContext db) =>
             {
-                if (!http.User.Identity?.IsAuthenticated ?? true)
-                    return Results.Unauthorized();
+                var result = await ctx.AuthenticateAsync(provider);
+                if (!result.Succeeded || result.Principal == null)
+                    return Results.Problem("External login failed");
+
+                var externalId = result.Principal.FindFirst("sub")?.Value
+                                 ?? result.Principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+                if (externalId == null)
+                    return Results.Problem("External ID not found");
+
+                var linkingUserId = Guid.Parse(ctx.AuthenticateAsync().Result.Principal.FindFirstValue("InternalUserId")!);
+
+                // Check if this external account is already linked to another user
+                var existingLink = await db.ExternalLogins.FirstOrDefaultAsync(l => l.Provider == provider && l.ProviderSubject == externalId);
+                if (existingLink != null && existingLink.UserId != linkingUserId)
+                    return Results.Content($"<p>Cannot link {provider}: account is already linked to another user.</p><a href='/account/profile'>Back</a>", "text/html");
+
+                // Link the external account to the current user if not already linked
+                if (existingLink == null)
+                {
+                    db.ExternalLogins.Add(new ExternalLogin
+                    {
+                        Id = Guid.NewGuid(),
+                        Provider = provider,
+                        ProviderSubject = externalId,
+                        UserId = linkingUserId,
+                        Created = DateTime.UtcNow,
+                        LastModified = DateTime.UtcNow
+                    });
+                    await db.SaveChangesAsync();
+                }
+
+                return Results.Content($"<p>{provider} successfully linked!</p><a href='/account/profile'>Back to Profile</a>", "text/html");
+            });
+
+            endpoints.MapGet("/account/link/{provider}", async (string provider, HttpContext ctx) =>
+            {
+                if (ctx.User.Identity?.IsAuthenticated != true)
+                    return Results.Redirect("/account/login");
 
                 var props = new AuthenticationProperties
                 {
-                    RedirectUri = "/account/postlink",
-                    Items =
-        {
-            ["linking"] = "true",
-            ["userId"] = http.User.FindFirstValue("InternalUserId")!
-        }
+                    RedirectUri = "/account/link/callback/" + provider,
+                    Items = { ["LinkingUserId"] = ctx.User.FindFirstValue("InternalUserId")! }
                 };
 
                 return Results.Challenge(props, new[] { provider });
