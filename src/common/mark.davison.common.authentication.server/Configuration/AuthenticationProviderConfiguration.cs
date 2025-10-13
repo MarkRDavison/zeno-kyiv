@@ -1,9 +1,9 @@
-﻿namespace mark.davison.kyiv.api.Configuration;
+﻿namespace mark.davison.common.authentication.server.Configuration;
 
-public class AuthenticationProviderConfiguration
+public sealed class AuthenticationProviderConfiguration
 {
-    public string Name { get; init; } = "";
-    public string Type { get; init; } = "oidc";
+    public required string Name { get; init; }
+    public required string Type { get; init; }
     public string? Authority { get; init; }
     public string? ClientId { get; init; }
     public string? ClientSecret { get; init; }

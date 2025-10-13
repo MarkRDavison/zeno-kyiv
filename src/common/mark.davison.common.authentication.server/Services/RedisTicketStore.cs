@@ -1,11 +1,9 @@
-﻿using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.Extensions.Caching.Distributed;
+﻿using Microsoft.Extensions.Caching.Distributed;
 using System.Text.Json;
 
-namespace mark.davison.kyiv.api.Services;
+namespace mark.davison.common.authentication.server.Services;
 
-public class RedisTicketStore : ITicketStore
+public class RedisTicketStore : IRedisTicketStore
 {
     private readonly IDistributedCache _cache;
     private readonly TimeSpan _expiration = TimeSpan.FromHours(1);
@@ -87,9 +85,10 @@ public class RedisTicketStore : ITicketStore
             return [];
         }
 
-
+        // TODO: Better
         var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
 
+        // TODO: Constants
         var newAccessToken = payload.GetProperty("access_token").GetString();
         var newRefreshToken = payload.TryGetProperty("refresh_token", out var rt) ? rt.GetString() : refreshToken;
         var expiresIn = payload.TryGetProperty("expires_in", out var exp) ? exp.GetInt32() : 3600;

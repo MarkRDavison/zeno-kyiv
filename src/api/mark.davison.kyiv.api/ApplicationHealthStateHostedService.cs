@@ -10,15 +10,18 @@ public class ApplicationHealthStateHostedService : IHostedService
     private readonly IHostApplicationLifetime _hostApplicationLifetime;
     private readonly IDbContextFactory<KyivDbContext> _dbContextFactory;
     private readonly IOptions<AppSettings> _appSettings;
+    private readonly IDataSeeder? _dataSeeder;
 
     public ApplicationHealthStateHostedService(
         IHostApplicationLifetime hostApplicationLifetime,
         IDbContextFactory<KyivDbContext> dbContextFactory,
-        IOptions<AppSettings> appSettings)
+        IOptions<AppSettings> appSettings,
+        IDataSeeder? dataSeeder)
     {
         _hostApplicationLifetime = hostApplicationLifetime;
         _dbContextFactory = dbContextFactory;
         _appSettings = appSettings;
+        _dataSeeder = dataSeeder;
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -61,6 +64,11 @@ public class ApplicationHealthStateHostedService : IHostedService
             {
                 await dbContext.Database.EnsureDeletedAsync(cancellationToken);
                 await dbContext.Database.EnsureCreatedAsync(cancellationToken);
+            }
+
+            if (_dataSeeder is not null)
+            {
+                await _dataSeeder.SeedDataAsync(cancellationToken);
             }
         }
 

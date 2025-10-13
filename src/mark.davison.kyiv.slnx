@@ -1,6 +1,14 @@
 <Solution>
-  <Folder Name="/0. common/" />
-  <Folder Name="/0. common/tests/" />
+  <Folder Name="/0. common/">
+    <Project Path="common/mark.davison.common.abstractions/mark.davison.common.abstractions.csproj" Id="d90740fe-23de-4023-a243-b8bb5d3e0f7e" />
+    <Project Path="common/mark.davison.common.authentication.server/mark.davison.common.authentication.server.csproj" Id="3818cce9-46d4-49e7-8a87-0b3f47c29542" />
+    <Project Path="common/mark.davison.common.persistence.abstractions/mark.davison.common.persistence.abstractions.csproj" Id="873d7584-a389-4170-9963-dab8e597e33a" />
+    <Project Path="common/mark.davison.common.server/mark.davison.common.server.csproj" Id="fb260c1c-24b0-4a87-a81a-4215853b8c66" />
+    <Project Path="common/mark.davison.common/mark.davison.common.csproj" Id="8f669a39-7d02-4274-9b02-127be9d1653d" />
+  </Folder>
+  <Folder Name="/0. common/tests/">
+    <Project Path="common/tests/mark.davison.common.authentication.tests/mark.davison.common.authentication.tests.csproj" Id="280bd76d-9de7-4375-8d80-5022821dc6b5" />
+  </Folder>
   <Folder Name="/1. api/">
     <Project Path="api/mark.davison.kyiv.api.models.configuration/mark.davison.kyiv.api.models.configuration.csproj" Id="76a1079b-632e-47ca-8332-9c7deb3e56f2" />
     <Project Path="api/mark.davison.kyiv.api.persistence/mark.davison.kyiv.api.persistence.csproj" Id="1ef612e4-0508-49b1-9b51-32f32b3f2061" />

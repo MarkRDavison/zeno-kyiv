@@ -15,6 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\common\mark.davison.common.authentication.server\mark.davison.common.authentication.server.csproj" />
     <ProjectReference Include="..\mark.davison.kyiv.api.persistence\mark.davison.kyiv.api.persistence.csproj" />
   </ItemGroup>
 

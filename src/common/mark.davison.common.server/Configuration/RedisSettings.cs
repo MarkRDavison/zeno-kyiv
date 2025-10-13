@@ -1,4 +1,4 @@
-﻿namespace mark.davison.kyiv.api.Configuration;
+﻿namespace mark.davison.common.server.Configuration;
 
 public class RedisSettings
 {

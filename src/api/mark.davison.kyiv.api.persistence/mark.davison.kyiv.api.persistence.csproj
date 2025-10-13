@@ -11,6 +11,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\common\mark.davison.common.persistence.abstractions\mark.davison.common.persistence.abstractions.csproj" />
+    <ProjectReference Include="..\..\shared\mark.davison.kyiv.shared.constants\mark.davison.kyiv.shared.constants.csproj" />
     <ProjectReference Include="..\..\shared\mark.davison.kyiv.shared.models\mark.davison.kyiv.shared.models.csproj" />
     <ProjectReference Include="..\mark.davison.kyiv.api.models.configuration\mark.davison.kyiv.api.models.configuration.csproj" />
   </ItemGroup>

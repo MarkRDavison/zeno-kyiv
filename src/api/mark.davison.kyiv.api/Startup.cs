@@ -1,4 +1,8 @@
-﻿using mark.davison.kyiv.api.Services;
+﻿using mark.davison.common.abstractions.Services;
+using mark.davison.common.authentication.server.Helpers;
+using mark.davison.common.authentication.server.Ignition;
+using mark.davison.common.Services;
+using mark.davison.kyiv.api.Services;
 using mark.davison.kyiv.shared.models.Entities;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -8,6 +12,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using StackExchange.Redis;
+using System.Data;
 using System.Security.Claims;
 using System.Text.Json;
 
@@ -33,45 +38,13 @@ public sealed class Startup
         services
             .AddCors()
             .AddLogging()
-            .AddAuthentication(options =>
-            {
-                options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-                options.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
-            })
-            .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme);
-
-        services
-            .AddMemoryCache();
-
-        services
-            .AddOptions<CookieAuthenticationOptions>(CookieAuthenticationDefaults.AuthenticationScheme)
-            .Configure<ITicketStore>((_, store) =>
-            {
-                _.SessionStore = store;
-                _.Events.OnValidatePrincipal = async context =>
-                {
-                    var ticket = context.Properties;
-
-                    var accessToken = ticket.GetTokenValue("access_token");
-                    var refreshToken = ticket.GetTokenValue("refresh_token");
-                    var expiresAt = DateTime.Parse(ticket.GetTokenValue("expires_at"));
-                    var client_id = ticket.Items.FirstOrDefault(_ => _.Key == "client_id").Value;
-                    var client_secret = ticket.Items.FirstOrDefault(_ => _.Key == "client_secret").Value;
-                    var token_endpoint = ticket.Items.FirstOrDefault(_ => _.Key == "token_endpoint").Value;
-
-                    if (/*DateTime.UtcNow > expiresAt && */store is RedisTicketStore redisStore)
-                    {
-                        var newTokens = await redisStore.RefreshTokensAsync(refreshToken, client_id, client_secret, token_endpoint);
-                        ticket.StoreTokens(newTokens);
-                        context.ShouldRenew = true; // persist updated ticket
-                    }
-                };
-            });
+            .AddSingleton<IDateService>(_ => new DateService(DateService.DateMode.Utc))
+            .AddServerAuthentication();
 
         services
             .AddScoped<IUserService, UserService>()
             .AddScoped<IUserRoleService, UserRoleService>()
-            .AddSingleton<ITicketStore, RedisTicketStore>();
+            .AddSingleton<IDataSeeder, KyivDataSeeder>();
 
         var config = new ConfigurationOptions
         {
@@ -138,9 +111,14 @@ public sealed class Startup
             }
         }
 
-        services.AddAuthorization().AddHealthChecks();
-        services.AddHttpClient().AddHttpContextAccessor();
-        services.AddDbContextFactory<KyivDbContext>(_ =>
+        services
+            .AddAuthorization()
+            .AddHealthChecks();
+        services
+            .AddHttpClient()
+            .AddHttpContextAccessor();
+        services
+            .AddDbContextFactory<KyivDbContext>(_ =>
         {
             _.UseSqlite($"Data Source=Kyiv.db");
             _.EnableSensitiveDataLogging();
@@ -186,15 +164,46 @@ public sealed class Startup
                 return Results.Challenge(props, new[] { provider });
             });
 
-            endpoints.MapGet("/account/postlogin", (HttpContext ctx) =>
+            endpoints.MapGet("/account/postlogin", async (HttpContext ctx, KyivDbContext db) =>
             {
+                var authResult = await ctx.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
                 var isAuth = ctx.User.Identity?.IsAuthenticated == true;
+
+                string tokenInfo = "(no access token)";
+                if (authResult.Succeeded && authResult.Properties != null)
+                {
+                    var expiresAtValue = authResult.Properties.GetTokenValue("expires_at");
+                    if (DateTime.TryParse(expiresAtValue, out var expiresAtLocal))
+                    {
+                        var expiresAtUtc = expiresAtLocal.ToUniversalTime();
+                        var remaining = expiresAtUtc - DateTime.UtcNow;
+                        tokenInfo = remaining > TimeSpan.Zero
+                            ? $"{remaining.TotalSeconds} seconds remaining"
+                            : "Expired";
+                    }
+                }
+
+                List<string> roles = new();
+                var internalId = ctx.User.FindFirstValue("InternalUserId");
+                if (internalId != null)
+                {
+                    var userId = Guid.Parse(internalId);
+                    roles = await db.UserRoles
+                        .Include(ur => ur.Role)
+                        .Where(ur => ur.UserId == userId)
+                        .Select(ur => ur.Role.Name)
+                        .ToListAsync();
+                }
+
                 var html = $@"
                     <h3>Post-login Debug</h3>
                     <p>Authenticated: {isAuth}</p>
                     <p>AuthenticationType: {ctx.User.Identity?.AuthenticationType ?? "(null)"}</p>
+                    <p>Access Token Remaining: {tokenInfo}</p>
                     <h4>Claims</h4>
                     <ul>{string.Join("", ctx.User.Claims.Select(c => $"<li>{c.Type}: {c.Value}</li>"))}</ul>
+                    <h4>Roles</h4>
+                    <ul>{string.Join("", roles.Select(r => $"<li>{r}</li>"))}</ul>
                     <h4>Cookies</h4>
                     <ul>{string.Join("", ctx.Request.Cookies.Select(c => $"<li>{c.Key}: {c.Value}</li>"))}</ul>
                     <a href='/account/profile'>Profile</a>
@@ -501,6 +510,8 @@ public sealed class Startup
         {
             OnTokenValidated = async context =>
             {
+                AuthTokenHelpers.NormalizeTokenTimes(context.Properties);
+
                 var http = context.HttpContext;
                 var db = http.RequestServices.GetRequiredService<KyivDbContext>();
                 var roleService = http.RequestServices.GetRequiredService<IUserRoleService>();
@@ -574,7 +585,36 @@ public sealed class Startup
                     user = await db.Users.FirstOrDefaultAsync(u => u.Email == email)
                            ?? new User { Id = Guid.NewGuid(), Email = email, DisplayName = email, CreatedAt = DateTime.UtcNow, IsActive = true };
 
-                    if (!db.Users.Any(u => u.Id == user.Id)) db.Users.Add(user);
+                    if (!db.Users.Any(u => u.Id == user.Id))
+                    {
+                        db.Users.Add(user);
+                        var defaultRole = await db.Roles.FirstAsync(r => r.Name == "User"); // TODO: Use constant ids??? here and other place
+                        db.UserRoles.Add(new UserRole
+                        {
+                            Id = Guid.NewGuid(),
+                            UserId = user.Id,
+                            RoleId = defaultRole.Id,
+                            Created = DateTime.UtcNow,
+                            LastModified = DateTime.UtcNow
+                        });
+
+                        if (string.Equals(user.Email, AppSettings.ADMIN_EMAIL, StringComparison.OrdinalIgnoreCase))
+                        {
+                            var adminRole = await db.Roles.FirstAsync(r => r.Name == "Admin"); // TODO: Use constant ids??? here and other place
+                            var alreadyAdmin = await db.UserRoles.AnyAsync(ur => ur.UserId == user.Id && ur.RoleId == adminRole.Id);
+                            if (!alreadyAdmin)
+                            {
+                                db.UserRoles.Add(new UserRole
+                                {
+                                    Id = Guid.NewGuid(),
+                                    UserId = user.Id,
+                                    RoleId = adminRole.Id,
+                                    Created = DateTime.UtcNow,
+                                    LastModified = DateTime.UtcNow
+                                });
+                            }
+                        }
+                    }
 
                     db.ExternalLogins.Add(new ExternalLogin
                     {
@@ -681,7 +721,36 @@ public sealed class Startup
                     user = await db.Users.FirstOrDefaultAsync(u => u.Email == email)
                            ?? new User { Id = Guid.NewGuid(), Email = email, DisplayName = email, CreatedAt = DateTime.UtcNow, IsActive = true };
 
-                    if (!db.Users.Any(u => u.Id == user.Id)) db.Users.Add(user);
+                    if (!db.Users.Any(u => u.Id == user.Id))
+                    {
+                        db.Users.Add(user);
+                        var defaultRole = await db.Roles.FirstAsync(r => r.Name == "User");
+                        db.UserRoles.Add(new UserRole
+                        {
+                            Id = Guid.NewGuid(),
+                            UserId = user.Id,
+                            RoleId = defaultRole.Id,
+                            Created = DateTime.UtcNow,
+                            LastModified = DateTime.UtcNow
+                        });
+
+                        if (string.Equals(user.Email, AppSettings.ADMIN_EMAIL, StringComparison.OrdinalIgnoreCase))
+                        {
+                            var adminRole = await db.Roles.FirstAsync(r => r.Name == "Admin"); // TODO: Use constant ids??? here and other place
+                            var alreadyAdmin = await db.UserRoles.AnyAsync(ur => ur.UserId == user.Id && ur.RoleId == adminRole.Id);
+                            if (!alreadyAdmin)
+                            {
+                                db.UserRoles.Add(new UserRole
+                                {
+                                    Id = Guid.NewGuid(),
+                                    UserId = user.Id,
+                                    RoleId = adminRole.Id,
+                                    Created = DateTime.UtcNow,
+                                    LastModified = DateTime.UtcNow
+                                });
+                            }
+                        }
+                    }
 
                     db.ExternalLogins.Add(new ExternalLogin
                     {
