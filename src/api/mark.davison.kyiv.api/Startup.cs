@@ -185,32 +185,74 @@ public sealed class Startup
                 return Results.Content(html, "text/html");
             });
 
-            endpoints.MapGet("/account/link/{provider}", (string provider, HttpContext ctx) =>
-            {
-                if (ctx.User.Identity?.IsAuthenticated != true)
-                    return Results.Redirect("/account/login");
-
-                // We'll store a flag so the OIDC/OAuth events know this is a "link" operation
-                var props = new AuthenticationProperties
-                {
-                    RedirectUri = "/account/postlink"
-                };
-                props.Items["linking"] = "true";
-                props.Items["userId"] = ctx.User.FindFirstValue("InternalUserId");
-
-                return Results.Challenge(props, new[] { provider });
-            });
-
-            endpoints.MapGet("/account/postlink", (HttpContext ctx) =>
-            {
-                var html = "<h3>Account linked successfully!</h3><a href='/account/profile'>Back to Profile</a>";
-                return Results.Content(html, "text/html");
-            });
 
             endpoints.MapGet("/account/logout", async (HttpContext ctx) =>
             {
                 await ctx.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
                 return Results.Redirect("/");
+            });
+
+            endpoints.MapGet("/account/links", async (HttpContext http, KyivDbContext db) =>
+            {
+                var userIdClaim = http.User.FindFirst("InternalUserId");
+                if (userIdClaim is null)
+                    return Results.Unauthorized();
+
+                var userId = Guid.Parse(userIdClaim.Value);
+
+                var links = await db.ExternalLogins
+                    .Where(l => l.UserId == userId)
+                    .Select(l => l.Provider)
+                    .ToListAsync();
+
+                var allProviders = new[] { "google", "keycloak" };
+                var unlinked = allProviders.Except(links).ToList();
+
+                var html = $"""
+        <html>
+        <body>
+            <h2>Linked Accounts</h2>
+            <ul>
+                {string.Join("", links.Select(p => $"<li>{p} ✅</li>"))}
+            </ul>
+
+            {(unlinked.Any() ? "<h3>Link another provider</h3>" : "<p>All providers linked.</p>")}
+
+            {string.Join("", unlinked.Select(p => $"<a href=\"/account/link/{p}\">Link {p}</a><br/>"))}
+        </body>
+        </html>
+    """;
+
+                return Results.Content(html, "text/html");
+            });
+
+            endpoints.MapGet("/account/link/{provider}", (string provider, HttpContext http) =>
+            {
+                if (!http.User.Identity?.IsAuthenticated ?? true)
+                    return Results.Unauthorized();
+
+                var props = new AuthenticationProperties
+                {
+                    RedirectUri = "/account/postlink",
+                    Items =
+        {
+            ["linking"] = "true",
+            ["userId"] = http.User.FindFirstValue("InternalUserId")!
+        }
+                };
+
+                return Results.Challenge(props, new[] { provider });
+            });
+
+            endpoints.MapGet("/account/postlink", () =>
+            {
+                var html = """
+        <html><body>
+        <h3>✅ Account linked successfully.</h3>
+        <a href="/account/links">Back to Linked Accounts</a>
+        </body></html>
+    """;
+                return Results.Content(html, "text/html");
             });
         });
     }
@@ -234,7 +276,51 @@ public sealed class Startup
                 var email = principal.FindFirst(ClaimTypes.Email)?.Value
                             ?? throw new InvalidDataException("No email from claim");
 
+                // 🔹 Detect linking mode
+                var isLinking = context.Properties?.Items.TryGetValue("linking", out var linkFlag) == true && linkFlag == "true";
+                var linkingUserId = context.Properties?.Items.TryGetValue("userId", out var uid) == true ? uid : null;
+
                 User user;
+                if (isLinking && Guid.TryParse(linkingUserId, out var existingUserId))
+                {
+                    user = await db.Users.FirstAsync(u => u.Id == existingUserId);
+
+                    var existingLink = await db.ExternalLogins
+                        .Include(l => l.User)
+                        .FirstOrDefaultAsync(l => l.Provider == provider && l.ProviderSubject == providerSub);
+
+                    var alreadyLinked = existingLink is not null;
+
+                    if (!alreadyLinked)
+                    {
+                        db.ExternalLogins.Add(new ExternalLogin
+                        {
+                            Id = Guid.NewGuid(),
+                            UserId = user.Id,
+                            Provider = provider,
+                            ProviderSubject = providerSub,
+                            Created = DateTime.UtcNow,
+                            LastModified = DateTime.UtcNow
+                        });
+                        await db.SaveChangesAsync();
+                    }
+                    else
+                    {
+                        if (existingLink?.UserId != user.Id)
+                        {
+                            // The provider account is already linked to a different user
+                            context.Fail($"This {provider} account is already linked to another user.");
+                            return;
+                        }
+                    }
+
+                    // skip normal sign-in, stay logged in as original user
+                    context.HandleResponse();
+                    context.Response.Redirect("/account/postlink");
+                    return;
+                }
+
+                // 🔹 Normal login flow
                 var externalLogin = await db.ExternalLogins.Include(l => l.User)
                     .FirstOrDefaultAsync(l => l.Provider == provider && l.ProviderSubject == providerSub);
 
@@ -266,8 +352,6 @@ public sealed class Startup
                 var roles = await roleService.GetRolesForUserAsync(user.Id);
                 foreach (var r in roles)
                     identity.AddClaim(new Claim(ClaimTypes.Role, r));
-
-                // No SignInAsync needed: middleware handles cookie automatically
             }
         };
     }
@@ -288,7 +372,50 @@ public sealed class Startup
                 var providerSub = userJson.RootElement.GetProperty("id").GetString()!;
                 var email = userJson.RootElement.GetProperty("email").GetString()!;
 
+                // 🔹 Detect linking mode
+                var isLinking = context.Properties?.Items.TryGetValue("linking", out var linkFlag) == true && linkFlag == "true";
+                var linkingUserId = context.Properties?.Items.TryGetValue("userId", out var uid) == true ? uid : null;
+
                 User user;
+                if (isLinking && Guid.TryParse(linkingUserId, out var existingUserId))
+                {
+                    user = await db.Users.FirstAsync(u => u.Id == existingUserId);
+
+
+                    var existingLink = await db.ExternalLogins
+                        .Include(l => l.User)
+                        .FirstOrDefaultAsync(l => l.Provider == provider && l.ProviderSubject == providerSub);
+
+                    var alreadyLinked = existingLink is not null;
+
+                    if (!alreadyLinked)
+                    {
+                        db.ExternalLogins.Add(new ExternalLogin
+                        {
+                            Id = Guid.NewGuid(),
+                            UserId = user.Id,
+                            Provider = provider,
+                            ProviderSubject = providerSub,
+                            Created = DateTime.UtcNow,
+                            LastModified = DateTime.UtcNow
+                        });
+                        await db.SaveChangesAsync();
+                    }
+                    else
+                    {
+                        if (existingLink?.UserId != user.Id)
+                        {
+                            // The provider account is already linked to a different user
+                            context.Fail($"This {provider} account is already linked to another user.");
+                            return;
+                        }
+                    }
+
+                    context.Response.Redirect("/account/postlink");
+                    return;
+                }
+
+                // 🔹 Normal login flow
                 var externalLogin = await db.ExternalLogins.Include(l => l.User)
                     .FirstOrDefaultAsync(l => l.Provider == provider && l.ProviderSubject == providerSub);
 
@@ -316,7 +443,8 @@ public sealed class Startup
                 identity.AddClaim(new Claim("InternalUserId", user.Id.ToString()));
 
                 var roles = await roleService.GetRolesForUserAsync(user.Id);
-                foreach (var r in roles) identity.AddClaim(new Claim(ClaimTypes.Role, r));
+                foreach (var r in roles)
+                    identity.AddClaim(new Claim(ClaimTypes.Role, r));
 
                 await http.SignInAsync(
                     CookieAuthenticationDefaults.AuthenticationScheme,
@@ -325,4 +453,5 @@ public sealed class Startup
             }
         };
     }
+
 }
