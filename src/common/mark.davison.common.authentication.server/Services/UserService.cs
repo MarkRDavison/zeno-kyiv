@@ -1,14 +1,12 @@
-﻿using mark.davison.common.server.Models;
-using Microsoft.Extensions.Caching.Memory;
+﻿namespace mark.davison.common.authentication.server.Services;
 
-namespace mark.davison.kyiv.api.Services;
-
-public class UserService : IUserService
+public class UserService<TDbContext> : IUserService
+    where TDbContext : DbContext
 {
-    private readonly KyivDbContext _db;
+    private readonly TDbContext _db;
     private readonly IMemoryCache _cache;
 
-    public UserService(KyivDbContext db, IMemoryCache cache)
+    public UserService(TDbContext db, IMemoryCache cache)
     {
         _db = db;
         _cache = cache;
@@ -17,7 +15,7 @@ public class UserService : IUserService
     public async Task<User> FindOrCreateUserAsync(string provider, string providerKey, string email)
     {
         // Try to find existing user via external login
-        var existingLogin = await _db.ExternalLogins
+        var existingLogin = await _db.Set<ExternalLogin>()
             .Include(x => x.User)
             .ThenInclude(x => x.UserRoles).
             ThenInclude(x => x.Role)
@@ -32,7 +30,7 @@ public class UserService : IUserService
         User? user = null;
         if (!string.IsNullOrWhiteSpace(email))
         {
-            user = await _db.Users.FirstOrDefaultAsync(u => u.Email == email);
+            user = await _db.Set<User>().FirstOrDefaultAsync(u => u.Email == email);
         }
 
         // Create new user if needed
@@ -44,7 +42,7 @@ public class UserService : IUserService
                 Email = email,
                 CreatedAt = DateTime.UtcNow
             };
-            _db.Users.Add(user);
+            _db.Set<User>().Add(user);
         }
 
         // Link external login
@@ -56,7 +54,7 @@ public class UserService : IUserService
             ProviderSubject = providerKey
         };
 
-        _db.ExternalLogins.Add(login);
+        _db.Set<ExternalLogin>().Add(login);
         await _db.SaveChangesAsync();
 
         // Cache roles (even if empty)
@@ -67,7 +65,7 @@ public class UserService : IUserService
 
     public async Task LinkExternalLoginAsync(Guid userId, string provider, string providerKey)
     {
-        var user = await _db.Users
+        var user = await _db.Set<User>()
             .Include(u => u.ExternalLogins)
             .FirstOrDefaultAsync(u => u.Id == userId);
 
@@ -87,25 +85,25 @@ public class UserService : IUserService
             LastModified = DateTime.UtcNow
         };
 
-        _db.ExternalLogins.Add(newLink);
+        _db.Set<ExternalLogin>().Add(newLink);
         await _db.SaveChangesAsync();
     }
 
     public async Task UnlinkExternalLoginAsync(Guid userId, string provider)
     {
-        var link = await _db.ExternalLogins
+        var link = await _db.Set<ExternalLogin>()
             .FirstOrDefaultAsync(l => l.UserId == userId && l.Provider == provider);
 
         if (link == null)
             throw new InvalidOperationException("Link not found.");
 
-        _db.ExternalLogins.Remove(link);
+        _db.Set<ExternalLogin>().Remove(link);
         await _db.SaveChangesAsync();
     }
 
     public async Task<User?> GetUserByIdAsync(Guid userId)
     {
-        var users = await _db.Users
+        var users = await _db.Set<User>()
             .Include(u => u.UserRoles)
             .Include(u => u.ExternalLogins)
             .ToListAsync();

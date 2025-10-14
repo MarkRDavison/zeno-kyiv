@@ -1,7 +1,5 @@
 ﻿using mark.davison.common.authentication.server.Configuration;
-using mark.davison.common.server.Models;
 using Microsoft.AspNetCore.Authentication.OAuth;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
@@ -43,6 +41,8 @@ public static class DependencyInjectionExtensions
                 });
 
         services
+            .AddScoped<IUserService, UserService<TDbContext>>()
+            .AddScoped<IUserRoleService, UserRoleService<TDbContext>>()
             .AddSingleton<IRedisTicketStore, RedisTicketStore>()
             .AddAuthenticationProviders<TDbContext>(authenticationSettings)
             .AddAuthorization();

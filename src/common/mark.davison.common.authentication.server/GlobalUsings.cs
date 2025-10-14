@@ -1,7 +1,16 @@
 ﻿global using mark.davison.common.abstractions.Services;
 global using mark.davison.common.authentication.server.Helpers;
 global using mark.davison.common.authentication.server.Services;
+global using mark.davison.common.server.Models;
 global using Microsoft.AspNetCore.Authentication;
 global using Microsoft.AspNetCore.Authentication.Cookies;
 global using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+global using Microsoft.AspNetCore.Authorization;
+global using Microsoft.AspNetCore.Authorization.Infrastructure;
+global using Microsoft.AspNetCore.Builder;
+global using Microsoft.AspNetCore.Http;
+global using Microsoft.AspNetCore.Routing;
+global using Microsoft.EntityFrameworkCore;
+global using Microsoft.Extensions.Caching.Memory;
 global using Microsoft.Extensions.DependencyInjection;
+global using System.Security.Claims;
