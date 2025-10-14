@@ -1,4 +1,4 @@
-﻿namespace mark.davison.kyiv.shared.models.Entities;
+﻿namespace mark.davison.common.server.Models;
 
 public class User
 {

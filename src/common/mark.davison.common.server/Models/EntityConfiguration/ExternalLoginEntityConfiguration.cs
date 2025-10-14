@@ -1,4 +1,4 @@
-﻿namespace mark.davison.kyiv.api.models.configuration.EntityConfiguration;
+﻿namespace mark.davison.common.server.Models.EntityConfiguration;
 
 public sealed class ExternalLoginEntityConfiguration : IEntityTypeConfiguration<ExternalLogin>
 {

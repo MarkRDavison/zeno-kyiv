@@ -1,16 +1,21 @@
-﻿
+﻿using mark.davison.common.server.Models;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 
-namespace mark.davison.kyiv.api.Services;
+namespace mark.davison.common.authentication.server.Services;
 
-public class UserRoleService : IUserRoleService
+public class UserRoleService<TDbContext> : IUserRoleService
+    where TDbContext : DbContext
 {
-    private readonly KyivDbContext _db;
+    private readonly TDbContext _db;
     private readonly IMemoryCache _cache;
-    private readonly ILogger<UserRoleService> _logger;
+    private readonly ILogger<UserRoleService<TDbContext>> _logger;
+
+    // TODO: Config?
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(10);
 
-    public UserRoleService(KyivDbContext db, IMemoryCache cache, ILogger<UserRoleService> logger)
+    public UserRoleService(TDbContext db, IMemoryCache cache, ILogger<UserRoleService<TDbContext>> logger)
     {
         _db = db;
         _cache = cache;
@@ -24,12 +29,13 @@ public class UserRoleService : IUserRoleService
             return roles!;
         }
 
-        roles = await _db.UserRoles
+        roles = await _db.Set<UserRole>()
             .Where(ur => ur.UserId == userId)
             .Select(ur => ur.Role.Name)
             .ToListAsync();
 
         _cache.Set(userId, roles, CacheDuration);
+
         return roles;
     }
 

@@ -1,4 +1,4 @@
-﻿namespace mark.davison.kyiv.api.Services;
+﻿namespace mark.davison.common.authentication.server.Services;
 
 public interface IUserRoleService
 {

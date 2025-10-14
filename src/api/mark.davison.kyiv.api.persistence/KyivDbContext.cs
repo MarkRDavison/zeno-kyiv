@@ -1,4 +1,7 @@
-﻿namespace mark.davison.kyiv.api.persistence;
+﻿using mark.davison.common.server.Models;
+using mark.davison.common.server.Models.EntityConfiguration;
+
+namespace mark.davison.kyiv.api.persistence;
 
 public sealed class KyivDbContext : DbContext
 {

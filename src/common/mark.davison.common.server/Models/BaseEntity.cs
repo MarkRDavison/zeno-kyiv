@@ -1,8 +1,7 @@
-﻿using mark.davison.kyiv.shared.models.Entities;
+﻿namespace mark.davison.common.server.Models;
 
-namespace mark.davison.kyiv.shared.models;
 
-public class KyivEntity
+public class BaseEntity
 {
     public Guid Id { get; set; }
     public DateTime Created { get; set; }

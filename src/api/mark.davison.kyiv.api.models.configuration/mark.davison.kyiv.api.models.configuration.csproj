@@ -14,4 +14,8 @@
     <ProjectReference Include="..\..\shared\mark.davison.kyiv.shared.models\mark.davison.kyiv.shared.models.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="EntityConfiguration\" />
+  </ItemGroup>
+
 </Project>

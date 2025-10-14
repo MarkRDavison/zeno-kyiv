@@ -9,4 +9,6 @@ public static class AuthConstants
     public const string ClientId = "client_id";
     public const string ClientSecret = "client_secret";
     public const string TokenEndpoint = "token_endpoint";
+    public const string ProviderType_Oidc = "oidc";
+    public const string ProviderType_Oauth = "oauth";
 }

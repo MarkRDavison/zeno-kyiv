@@ -1,6 +1,6 @@
-﻿namespace mark.davison.kyiv.shared.models.Entities;
+﻿namespace mark.davison.common.server.Models;
 
-public class Role : KyivEntity
+public class Role : BaseEntity
 {
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
