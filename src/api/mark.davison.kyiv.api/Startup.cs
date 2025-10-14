@@ -8,6 +8,8 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OAuth;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
@@ -498,6 +500,29 @@ public sealed class Startup
         <a href='/account/profile'>Back to profile</a>
     ";
                 return Results.Content(html, "text/html");
+            });
+
+            // TODO: Admin -> Constant
+            endpoints.MapGet("/admin/secret", async (HttpContext ctx, IAuthorizationService auth) =>
+            {
+                /*
+                    services.AddAuthorization(options =>
+                    {
+                        options.AddPolicy("RequireAdmin", policy => policy.RequireRole("Admin"));
+                    });
+
+                    // ...
+
+                    var result = await auth.AuthorizeAsync(user, null, "RequireAdmin");
+
+                    this is a policy equivelant
+                 */
+
+                if (await auth.AuthorizeAsync(ctx.User, null, new RolesAuthorizationRequirement(["Admin"])) is { Succeeded: true })
+                {
+                    return Results.Content("<h2>Welcome, Admin!</h2><p>You have access to this protected resource.</p>", "text/html");
+                }
+                return Results.Unauthorized();
             });
         });
 
