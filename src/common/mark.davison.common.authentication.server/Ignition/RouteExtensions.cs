@@ -12,8 +12,6 @@ public static class RouteExtensions
         endpoints.MapGet("/account/profile", GetAccountProfile);
         endpoints.MapGet("/account/logout", GetLogout);
         endpoints.MapGet("/account/links", GetLinks<TDbContext>);
-        endpoints.MapGet("/account/link/callback/{provider}", GetLinkCallbackForProvider<TDbContext>);
-        endpoints.MapGet("/account/link/callback", GetLinkCallback<TDbContext>);
         endpoints.MapGet("/account/link/{provider}", GetLinkForProvider);
         endpoints.MapGet("/account/link-callback", GetLinkCallback2<TDbContext>);
         endpoints.MapGet("/account/postlink", GetPostLink);
@@ -189,95 +187,6 @@ public static class RouteExtensions
         """;
 
         return Results.Content(html, "text/html");
-    }
-
-    public static async Task<IResult> GetLinkCallbackForProvider<TDbContext>(string provider, HttpContext context, TDbContext dbContext)
-        where TDbContext : DbContext
-    {
-        var result = await context.AuthenticateAsync(provider);
-        if (!result.Succeeded || result.Principal == null)
-        {
-            return Results.Problem("External login failed");
-        }
-
-        var externalId = result.Principal.FindFirst("sub")?.Value
-                         ?? result.Principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-        if (externalId == null)
-        {
-            return Results.Problem("External ID not found");
-        }
-
-        result = await context.AuthenticateAsync();
-
-        var linkingUserId = Guid.Parse(result.Principal.FindFirstValue("InternalUserId")!);
-
-        // Check if this external account is already linked to another user
-        var existingLink = await dbContext.Set<ExternalLogin>().FirstOrDefaultAsync(l => l.Provider == provider && l.ProviderSubject == externalId);
-        if (existingLink != null && existingLink.UserId != linkingUserId)
-            return Results.Content($"<p>Cannot link {provider}: account is already linked to another user.</p><a href='/account/profile'>Back</a>", "text/html");
-
-        // Link the external account to the current user if not already linked
-        if (existingLink == null)
-        {
-            dbContext.Set<ExternalLogin>().Add(new ExternalLogin
-            {
-                Id = Guid.NewGuid(),
-                Provider = provider,
-                ProviderSubject = externalId,
-                UserId = linkingUserId,
-                Created = DateTime.UtcNow,
-                LastModified = DateTime.UtcNow
-            });
-            await dbContext.SaveChangesAsync();
-        }
-
-        return Results.Content($"<p>{provider} successfully linked!</p><a href='/account/profile'>Back to Profile</a>", "text/html");
-    }
-    public static async Task<IResult> GetLinkCallback<TDbContext>(HttpContext context, TDbContext dbContext, IUserRoleService roleService)
-        where TDbContext : DbContext
-    {
-        var linkingUserId = context.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme)
-                               .Result.Principal?.FindFirstValue("InternalUserId");
-
-        if (linkingUserId == null)
-            return Results.Redirect("/account/login");
-
-        var userId = Guid.Parse(linkingUserId);
-
-        var result = await context.AuthenticateAsync(); // Authenticate from the external provider
-        if (!result.Succeeded || result.Principal == null)
-            return Results.Content("<p>External login failed</p><a href='/account/profile'>Back to profile</a>", "text/html");
-
-        // TODO: Is ".AuthScheme" the right one?
-        var provider = result.Properties?.Items[".AuthScheme"] ?? result.Ticket?.AuthenticationScheme ?? "unknown";
-        var providerSub = result.Principal.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                          ?? result.Principal.FindFirst("sub")?.Value
-                          ?? throw new InvalidDataException("No provider subject");
-
-        // Check if already linked to a different user
-        var existingLogin = await dbContext.Set<ExternalLogin>().FirstOrDefaultAsync(l => l.Provider == provider && l.ProviderSubject == providerSub);
-        if (existingLogin != null && existingLogin.UserId != userId)
-        {
-            return Results.Content("<p>This external account is already linked to another user.</p><a href='/account/profile'>Back to profile</a>", "text/html");
-        }
-
-        // Add external login if not already linked
-        if (existingLogin == null)
-        {
-            dbContext.Set<ExternalLogin>().Add(new ExternalLogin
-            {
-                Id = Guid.NewGuid(),
-                UserId = userId,
-                Provider = provider,
-                ProviderSubject = providerSub,
-                Created = DateTime.UtcNow,
-                LastModified = DateTime.UtcNow
-            });
-            await dbContext.SaveChangesAsync();
-        }
-
-        return Results.Content("<p>Provider linked successfully!</p><a href='/account/profile'>Back to profile</a>", "text/html");
     }
 
     private static IResult GetLinkForProvider(string provider, HttpContext context)
