@@ -18,6 +18,7 @@ public static class DependencyInjectionExtensions
     {
         var authBuilder = services
             .AddSingleton<IAuthenticationProvidersService, AuthenticationProvidersService>()
+            .AddScoped<ICurrentUserContext, CurrentUserContext>()
             .AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = AuthConstants.DynamicScheme;

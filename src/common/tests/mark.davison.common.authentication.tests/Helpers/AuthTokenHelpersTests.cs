@@ -173,6 +173,7 @@ public sealed class AuthTokenHelpersTests
         const string clientId = "client_id";
         const string clientSecret = "client_secret";
         const string tokenEndpoint = "token_endpoint";
+        const string refreshToken = "refresh_token";
 
         AuthenticationTokenExtensions.StoreTokens(
             properties,
@@ -188,6 +189,7 @@ public sealed class AuthTokenHelpersTests
         properties.Items.Add(AuthConstants.ClientId, clientId);
         properties.Items.Add(AuthConstants.ClientSecret, clientSecret);
         properties.Items.Add(AuthConstants.TokenEndpoint, tokenEndpoint);
+        properties.Items.Add(".Token." + AuthConstants.RefreshToken, refreshToken);
 
         _dateServiceMock
             .Setup(_ => _.Now)
@@ -199,15 +201,16 @@ public sealed class AuthTokenHelpersTests
                 clientId,
                 clientSecret,
                 tokenEndpoint))
-            .ReturnsAsync([]);
+            .ReturnsAsync([new AuthenticationToken {
+                Name = "refresh_token",
+                Value = refreshToken
+            }]);
 
-        await Assert.
-            That(
-                AuthTokenHelpers.RefreshTokenIfNeeded(
+        var refreshed = await AuthTokenHelpers.RefreshTokenIfNeeded(
                     _dateServiceMock.Object,
                     _redisTicketStoreMock.Object,
-                    properties))
-            .IsEqualTo(
-                true);
+                    properties);
+
+        await Assert.That(refreshed).IsTrue();
     }
 }

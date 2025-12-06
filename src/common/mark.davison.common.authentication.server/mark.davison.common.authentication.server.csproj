@@ -13,6 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\mark.davison.common.authentication.server.abstractions\mark.davison.common.authentication.server.abstractions.csproj" />
     <ProjectReference Include="..\mark.davison.common.server\mark.davison.common.server.csproj" />
     <ProjectReference Include="..\mark.davison.common\mark.davison.common.csproj" />
   </ItemGroup>

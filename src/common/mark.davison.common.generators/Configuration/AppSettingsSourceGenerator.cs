@@ -13,8 +13,8 @@ public class AppSettingsSourceGenerator : IIncrementalGenerator
     {
         var sources = context.SyntaxProvider
             .CreateSyntaxProvider<AppSettingInfo?>(
-                predicate: static (SyntaxNode s, CancellationToken token) => s is ClassDeclarationSyntax,
-                transform: static (GeneratorSyntaxContext ctx, CancellationToken token) =>
+                predicate: static (s, token) => s is ClassDeclarationSyntax cls && cls.BaseList is not null,
+                transform: static (ctx, token) =>
                 {
                     if (ctx.SemanticModel.GetDeclaredSymbol(ctx.Node, token) is not INamedTypeSymbol symbol)
                     {
@@ -99,7 +99,6 @@ public class AppSettingsSourceGenerator : IIncrementalGenerator
             {
                 if (m is IPropertySymbol propSymbol)
                 {
-                    var origDef = propSymbol.OriginalDefinition.GetType();
                     if (propSymbol.Type is INamedTypeSymbol childSymbol)
                     {
                         if (childSymbol.AllInterfaces.Length > 0)
@@ -141,7 +140,7 @@ public class AppSettingsSourceGenerator : IIncrementalGenerator
 
     private static void Execute(ImmutableArray<AppSettingInfo?> source, SourceProductionContext spc)
     {
-        var root = source.Where(s => s is not null && s.IsRoot).Single() ?? throw new InvalidOperationException();
+        var root = source.Where(s => s is not null && s.IsRoot).First() ?? throw new InvalidOperationException();
 
         var builder = new StringBuilder();
 

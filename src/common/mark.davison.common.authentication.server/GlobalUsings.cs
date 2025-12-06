@@ -1,4 +1,5 @@
 ﻿global using mark.davison.common.abstractions.Services;
+global using mark.davison.common.authentication.server.abstractions.Services;
 global using mark.davison.common.authentication.server.Helpers;
 global using mark.davison.common.authentication.server.Services;
 global using mark.davison.common.server.Models;

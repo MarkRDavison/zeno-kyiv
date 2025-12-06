@@ -1,5 +1,4 @@
 ﻿using mark.davison.common.server.CQRS;
-using mark.davison.common.server.Services;
 
 namespace mark.davison.common.server.Ignition;
 
@@ -8,7 +7,6 @@ public static class DependencyInjectionExtensions
     public static IServiceCollection AddServerCore(this IServiceCollection services)
     {
         return services
-            .AddScoped<ICurrentUserContext, CurrentUserContext>()
             .AddScoped<IQueryDispatcher, QueryDispatcher>();
     }
     public static IServiceCollection AddRedis(this IServiceCollection services, RedisSettings settings, string instanceName)

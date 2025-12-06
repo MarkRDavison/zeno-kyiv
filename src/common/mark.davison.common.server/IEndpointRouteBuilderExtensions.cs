@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Builder;
+﻿using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using System.Net.Http.Headers;
 
 namespace mark.davison.common.server;
 
@@ -11,13 +13,14 @@ public static class IEndpointRouteBuilderExtensions
         this IEndpointRouteBuilder endpoints,
         string apiEndpoint)
     {
+        // TODO: Try use YARP for this
         endpoints.Map("/api/{**catchall}", async (
             HttpContext context,
             [FromServices] IHttpClientFactory httpClientFactory,
             CancellationToken cancellationToken) =>
         {
-            var access_token = string.Empty; // TODO:
 
+            var token = await context.GetTokenAsync("id_token");
             //if (string.IsNullOrEmpty(access_token))
             //{
             //    return Results.Unauthorized();
@@ -31,8 +34,12 @@ public static class IEndpointRouteBuilderExtensions
                 Content = new StreamContent(context.Request.Body)
             };
 
-            // TODO: Construct auth header properly
-            //request.Headers.TryAddWithoutValidation(HeaderNames.Authorization, $"Bearer {access_token}");
+            // TODO: Only send this if the endpoint requires auth?
+            // I.e. for CQRS that allows anonymous dont send it?
+            if (!string.IsNullOrEmpty(token))
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
 
             var response = await client.SendAsync(request, cancellationToken);
 
@@ -48,7 +55,7 @@ public static class IEndpointRouteBuilderExtensions
                 Errors = ["BAD_REQUEST", $"{response.StatusCode}", content]
             });
         })
-        .RequireAuthorization(); // TODO: Not always required???
+        .RequireAuthorization(); // TODO: Not always required??? link to cqrs AllowAnonymous
 
         return endpoints;
     }

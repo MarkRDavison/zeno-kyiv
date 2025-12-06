@@ -7,11 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\common\mark.davison.common\mark.davison.common.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Scenarios\Commands\" />
+    <ProjectReference Include="..\mark.davison.common.abstractions\mark.davison.common.abstractions.csproj" />
   </ItemGroup>
 
 </Project>

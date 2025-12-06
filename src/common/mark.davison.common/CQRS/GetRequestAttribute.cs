@@ -4,6 +4,7 @@
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
 public class GetRequestAttribute : Attribute
 {
-    public string Path { get; set; } = null!;
+    public required string Path { get; set; }
+    public string[] RequireRoles { get; set; } = [];
     public bool AllowAnonymous { get; set; }
 }

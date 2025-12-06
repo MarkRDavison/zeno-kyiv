@@ -2,7 +2,9 @@
 using mark.davison.common.server.abstractions.CQRS;
 using mark.davison.common.server.CQRS;
 using mark.davison.common.server.Ignition;
+using mark.davison.kyiv.api.queries.Scenarios.AdminSettings;
 using mark.davison.kyiv.api.queries.Scenarios.Startup;
+using mark.davison.kyiv.shared.models.dto.Scenarios.Queries.AdminSettings;
 using mark.davison.kyiv.shared.models.dto.Scenarios.Queries.Startup;
 
 namespace mark.davison.kyiv.api;
@@ -38,6 +40,7 @@ public sealed class Startup
                 _.EnableDetailedErrors();
             })
             .AddHostedService<ApplicationHealthStateHostedService>()
+            .AddServerCore()
             // TODO: SO MANUAL
             .AddScoped<IQueryProcessor<StartupQueryRequest, StartupQueryResponse>, StartupQueryProcessor>()
             .AddScoped<IQueryHandler<StartupQueryRequest, StartupQueryResponse>>(_ =>
@@ -45,7 +48,12 @@ public sealed class Startup
                 return new ValidateAndProcessQueryHandler<StartupQueryRequest, StartupQueryResponse>(
                     _.GetRequiredService<IQueryProcessor<StartupQueryRequest, StartupQueryResponse>>());
             })
-            .AddServerCore();
+            .AddScoped<IQueryProcessor<AdminSettingsQueryRequest, AdminSettingsQueryResponse>, AdminSettingsQueryProcessor>()
+            .AddScoped<IQueryHandler<AdminSettingsQueryRequest, AdminSettingsQueryResponse>>(_ =>
+            {
+                return new ValidateAndProcessQueryHandler<AdminSettingsQueryRequest, AdminSettingsQueryResponse>(
+                    _.GetRequiredService<IQueryProcessor<AdminSettingsQueryRequest, AdminSettingsQueryResponse>>());
+            });
     }
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
@@ -74,6 +82,16 @@ public sealed class Startup
                             return await dispatcher.Dispatch<StartupQueryRequest, StartupQueryResponse>(cancellationToken);
                         })
                     .AllowAnonymous();
+
+                endpoints
+                    .MapGet(
+                        "/api/admin-settings",
+                        async (HttpContext context, CancellationToken cancellationToken) =>
+                        {
+                            var dispatcher = context.RequestServices.GetRequiredService<IQueryDispatcher>();
+                            return await dispatcher.Dispatch<AdminSettingsQueryRequest, AdminSettingsQueryResponse>(cancellationToken);
+                        })
+                    .RequireAuthorization(p => p.RequireRole("Admin"));
             });
     }
 

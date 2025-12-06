@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/0. common/">
     <Project Path="common/mark.davison.common.abstractions/mark.davison.common.abstractions.csproj" Id="d90740fe-23de-4023-a243-b8bb5d3e0f7e" />
+    <Project Path="common/mark.davison.common.authentication.server.abstractions/mark.davison.common.authentication.server.abstractions.csproj" Id="ad7bad18-fab7-45b2-b9c0-6fc39cbc1bc4" />
     <Project Path="common/mark.davison.common.authentication.server/mark.davison.common.authentication.server.csproj" Id="3818cce9-46d4-49e7-8a87-0b3f47c29542" />
     <Project Path="common/mark.davison.common.client.abstractions/mark.davison.common.client.abstractions.csproj" Id="5af766ba-54de-423c-b222-82859bc4eb0d" />
     <Project Path="common/mark.davison.common.client.web.abstractions/mark.davison.common.client.web.abstractions.csproj" Id="eaac3ac1-7ea2-4297-9d3a-0b0ad6dc387c" />
