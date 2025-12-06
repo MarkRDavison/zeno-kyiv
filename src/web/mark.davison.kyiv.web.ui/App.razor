@@ -2,7 +2,19 @@
         AdditionalAssemblies="new[]{ typeof(Routes).Assembly }" 
         NotFoundPage="typeof(NotFound)">
     <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)"/>
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                <NotAuthorized>
+                    @if (!context.User.Identity?.IsAuthenticated ?? true)
+                    {
+                        <p>TODO: REDIRECT TO LOGIN</p>
+                    }
+                    else
+                    {
+                        <p>You do not have permission to view this page.</p>
+                    }
+                </NotAuthorized>
+            </AuthorizeRouteView>
+
         <FocusOnNavigate RouteData="@routeData" Selector="h1" />
     </Found>
 </Router>

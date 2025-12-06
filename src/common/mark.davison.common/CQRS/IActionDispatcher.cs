@@ -1,4 +1,4 @@
-﻿namespace mark.davison.common.client.abstractions.CQRS;
+﻿namespace mark.davison.common.CQRS;
 
 public interface IActionDispatcher
 {

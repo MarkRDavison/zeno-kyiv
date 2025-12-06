@@ -27,6 +27,14 @@ public static class DependencyInjectionExtensions
             {
                 options.ForwardDefaultSelector = context =>
                 {
+                    var endpoint = context.GetEndpoint();
+
+                    // If the endpoint allows anonymous, don’t select a scheme
+                    if (endpoint?.Metadata?.GetMetadata<IAllowAnonymous>() != null)
+                    {
+                        return "Anonymous"; // no auth required
+                    }
+
                     var authHeader = context.Request.Headers[HeaderNames.Authorization].ToString();
 
                     string issuer;
@@ -64,7 +72,8 @@ public static class DependencyInjectionExtensions
 
                     throw new InvalidOperationException("Missing or unknown authentication provider");
                 };
-            });
+            })
+            .AddScheme<AuthenticationSchemeOptions, NoOpAuthenticationHandler>("Anonymous", _ => { }); ;
 
         foreach (var provider in authenticationSettings.Providers)
         {

@@ -45,7 +45,19 @@ public class AuthenticationService : IAuthenticationService
         }
         if (root.TryGetProperty("loggedInProvider", out var providerProp))
         {
-            claims.Add(new Claim("provider", providerProp.GetString() ?? ""));
+            claims.Add(new Claim("loggedInProvider", providerProp.GetString() ?? ""));
+        }
+
+        if (root.TryGetProperty("linkedProviders", out var linkedProvidersProp) && linkedProvidersProp.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var c in linkedProvidersProp.EnumerateArray())
+            {
+                var p = c.GetString();
+                if (!string.IsNullOrEmpty(p))
+                {
+                    claims.Add(new Claim("provider", p));
+                }
+            }
         }
 
         // Roles / claims

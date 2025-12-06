@@ -6,4 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\common\mark.davison.common\mark.davison.common.csproj" />
+  </ItemGroup>
+
 </Project>

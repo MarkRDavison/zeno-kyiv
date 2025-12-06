@@ -19,6 +19,7 @@
   <Folder Name="/1. api/">
     <Project Path="api/mark.davison.kyiv.api.models.configuration/mark.davison.kyiv.api.models.configuration.csproj" Id="76a1079b-632e-47ca-8332-9c7deb3e56f2" />
     <Project Path="api/mark.davison.kyiv.api.persistence/mark.davison.kyiv.api.persistence.csproj" Id="1ef612e4-0508-49b1-9b51-32f32b3f2061" />
+    <Project Path="api/mark.davison.kyiv.api.queries/mark.davison.kyiv.api.queries.csproj" Id="f897b797-41ce-4bc9-a9b9-fcb9f9be9877" />
     <Project Path="api/mark.davison.kyiv.api/mark.davison.kyiv.api.csproj" Id="3398affd-ef0e-4f67-b918-d2de2c3bfdd2" />
   </Folder>
   <Folder Name="/1. api/migrations/" />

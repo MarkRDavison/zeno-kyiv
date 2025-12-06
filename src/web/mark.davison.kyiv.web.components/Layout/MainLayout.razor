@@ -1,7 +1,5 @@
 ﻿@inherits LayoutComponentBase
 
-@inject IAuthenticationService _authService;
-
 @using Microsoft.AspNetCore.Components.Authorization
 @using MudBlazor
 @using mark.davison.common.client.web.abstractions.Authentication
@@ -54,11 +52,6 @@
 @code {
     private bool _isDarkMode;
     private MudThemeProvider? _mudThemeProvider;
-
-    protected override async Task OnInitializedAsync()
-    {
-        await _authService.EvaluateAuthentication();
-    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

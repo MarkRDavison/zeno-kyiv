@@ -660,13 +660,26 @@ public static class RouteExtensions
                 .Select(r => r.Value)
                 .ToList();
 
+            var userIdstring = context.User.FindFirstValue(AuthConstants.InternalUserId);
+
+            if (!Guid.TryParse(userIdstring, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var userAuthenticationService = context.RequestServices.GetRequiredService<IUserAuthenticationService>();
+
+            // TODO: CACHE
+            var userExternalLogins = await userAuthenticationService.GetExternalLoginsForUserIdAsync(userId, context.RequestAborted);
+
             var user = new
             {
                 Name = context.User.Identity.Name,
                 IsAuthenticated = context.User.Identity.IsAuthenticated,
                 Email = context.User.FindFirstValue(ClaimTypes.Email),
-                UserId = context.User.FindFirstValue(AuthConstants.InternalUserId),
+                UserId = userId,
                 LoggedInProvider = context.User.FindFirstValue(AuthConstants.LoggedInProvider),
+                LinkedProviders = userExternalLogins.Select(_ => _.Provider).ToList(),
                 Claims = roles
             };
 

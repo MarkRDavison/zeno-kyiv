@@ -1,4 +1,8 @@
-﻿global using mark.davison.common.server.Configuration;
+﻿global using mark.davison.common.CQRS;
+global using mark.davison.common.server.abstractions.CQRS;
+global using mark.davison.common.server.abstractions.Services;
+global using mark.davison.common.server.Configuration;
+global using Microsoft.AspNetCore.Http;
 global using Microsoft.EntityFrameworkCore;
 global using Microsoft.EntityFrameworkCore.Metadata.Builders;
 global using Microsoft.Extensions.DependencyInjection;

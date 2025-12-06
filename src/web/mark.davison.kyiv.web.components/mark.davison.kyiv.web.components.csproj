@@ -24,6 +24,7 @@
     <ProjectReference Include="..\..\common\mark.davison.common.client.web\mark.davison.common.client.web.csproj" />
     <ProjectReference Include="..\..\common\mark.davison.common.client\mark.davison.common.client.csproj" />
     <ProjectReference Include="..\..\shared\mark.davison.kyiv.shared.constants\mark.davison.kyiv.shared.constants.csproj" />
+    <ProjectReference Include="..\..\shared\mark.davison.kyiv.shared.models.dto\mark.davison.kyiv.shared.models.dto.csproj" />
   </ItemGroup>
 
 </Project>

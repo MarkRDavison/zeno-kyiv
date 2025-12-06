@@ -1,4 +1,6 @@
-﻿namespace mark.davison.kyiv.bff;
+﻿using mark.davison.common.server;
+
+namespace mark.davison.kyiv.bff;
 
 public sealed class Startup
 {
@@ -54,6 +56,9 @@ public sealed class Startup
             {
                 endpoints
                     .MapInteractiveAuthenticationEndpoints(AppSettings.WEB_ORIGIN);
+
+                endpoints
+                    .UseApiProxy(AppSettings.API_ENDPOINT);
             });
     }
 }

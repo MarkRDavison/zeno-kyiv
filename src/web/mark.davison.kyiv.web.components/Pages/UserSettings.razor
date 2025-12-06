@@ -1,0 +1,55 @@
+﻿@using MudBlazor.Charts
+@using mark.davison.kyiv.shared.models.dto.Scenarios.Queries.Startup
+@using mark.davison.kyiv.shared.models.dto.Shared
+@attribute [Authorize]
+@attribute [Route(Routes.UserSettings)]
+
+@inject IClientHttpRepository _clientRepository
+
+<h1>User Settings</h1>
+
+<AuthorizeView>
+	<Authorized>
+		<span>@($"You are currently logged in with {context.User.FindFirst("loggedInProvider")?.Value}")</span><br/>
+		<span>These are all the identity providers that are linked to this account</span><br/>
+		<ul>
+			@foreach (var linkedProvider in context.User.FindAll("provider"))
+			{
+				<li>@linkedProvider.Value</li>	
+			}
+		</ul>
+		@if (_startupData is not null)
+		{
+			<br />
+			<span>These providers are configured</span>
+			<ul>
+				@foreach (var provider in _startupData.AvailableProviders)
+				{
+					<li>@provider</li>
+				}
+			</ul>
+			<br />
+			<span>These roles are configured</span>
+			<ul>
+				@foreach (var role in _startupData.Roles)
+				{
+					<li>@role</li>
+				}
+			</ul>
+		}
+	</Authorized>
+</AuthorizeView>
+
+@code {
+	private StartupQueryDto? _startupData;
+
+	protected override async Task OnInitializedAsync()
+	{
+		var response = await _clientRepository.Get<StartupQueryResponse, StartupQueryRequest>(new StartupQueryRequest(), CancellationToken.None);
+
+		if (response.SuccessWithValue)
+		{
+			_startupData = response.Value;
+		}
+	}
+}

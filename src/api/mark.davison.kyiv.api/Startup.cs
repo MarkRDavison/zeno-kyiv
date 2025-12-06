@@ -1,4 +1,11 @@
-﻿namespace mark.davison.kyiv.api;
+﻿using mark.davison.common.CQRS;
+using mark.davison.common.server.abstractions.CQRS;
+using mark.davison.common.server.CQRS;
+using mark.davison.common.server.Ignition;
+using mark.davison.kyiv.api.queries.Scenarios.Startup;
+using mark.davison.kyiv.shared.models.dto.Scenarios.Queries.Startup;
+
+namespace mark.davison.kyiv.api;
 
 public sealed class Startup
 {
@@ -30,7 +37,15 @@ public sealed class Startup
                 _.EnableSensitiveDataLogging();
                 _.EnableDetailedErrors();
             })
-            .AddHostedService<ApplicationHealthStateHostedService>();
+            .AddHostedService<ApplicationHealthStateHostedService>()
+            // TODO: SO MANUAL
+            .AddScoped<IQueryProcessor<StartupQueryRequest, StartupQueryResponse>, StartupQueryProcessor>()
+            .AddScoped<IQueryHandler<StartupQueryRequest, StartupQueryResponse>>(_ =>
+            {
+                return new ValidateAndProcessQueryHandler<StartupQueryRequest, StartupQueryResponse>(
+                    _.GetRequiredService<IQueryProcessor<StartupQueryRequest, StartupQueryResponse>>());
+            })
+            .AddServerCore();
     }
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
@@ -49,6 +64,16 @@ public sealed class Startup
             .UseEndpoints(endpoints =>
             {
                 endpoints.MapBackendRemoteAuthenticationEndpoints<KyivDbContext>();
+                // TODO: SO MANUAL
+                endpoints
+                    .MapGet(
+                        "/api/startup-query",
+                        async (HttpContext context, CancellationToken cancellationToken) =>
+                        {
+                            var dispatcher = context.RequestServices.GetRequiredService<IQueryDispatcher>();
+                            return await dispatcher.Dispatch<StartupQueryRequest, StartupQueryResponse>(cancellationToken);
+                        })
+                    .AllowAnonymous();
             });
     }
 
