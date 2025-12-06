@@ -2,13 +2,16 @@
 
 public class User
 {
-    public Guid Id { get; set; }
-    public string Email { get; set; } = null!;
-    public string? DisplayName { get; set; }
+    public required Guid Id { get; set; }
+    public required Guid TenantId { get; set; }
+    public required string Email { get; set; }
+    public required string? DisplayName { get; set; }
     public bool IsActive { get; set; } = true;
 
-    public DateTime CreatedAt { get; set; }
-    public DateTime LastModified { get; set; }
-    public ICollection<UserRole> UserRoles { get; set; } = [];
-    public ICollection<ExternalLogin> ExternalLogins { get; set; } = [];
+    public required DateTime CreatedAt { get; set; }
+    public required DateTime LastModified { get; set; }
+
+    public virtual Tenant? Tenant { get; set; }
+    public virtual ICollection<UserRole> UserRoles { get; set; } = [];
+    public virtual ICollection<ExternalLogin> ExternalLogins { get; set; } = [];
 }

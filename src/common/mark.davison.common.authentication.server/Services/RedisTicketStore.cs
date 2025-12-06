@@ -71,34 +71,33 @@ public class RedisTicketStore : IRedisTicketStore
 
         var content = new FormUrlEncodedContent(new Dictionary<string, string>
         {
-            ["grant_type"] = "refresh_token",
-            ["refresh_token"] = refreshToken,
-            ["client_id"] = clientId,
-            ["client_secret"] = clientSecret
+            [AuthConstants.GrantType] = AuthConstants.RefreshToken,
+            [AuthConstants.RefreshToken] = refreshToken,
+            [AuthConstants.ClientId] = clientId,
+            [AuthConstants.ClientSecret] = clientSecret
         });
 
         var response = await _httpClient.PostAsync(tokenEndpoint, content);
 
         if (!response.IsSuccessStatusCode)
         {
-            // TODO: THROW;
             return [];
         }
 
-        // TODO: Better
-        var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        var responseContent = await response.Content.ReadAsStringAsync();
+        // TODO: Named properties not JsonElement
+        var payload = JsonDocument.Parse(responseContent).RootElement;
 
-        // TODO: Constants
-        var newAccessToken = payload.GetProperty("access_token").GetString();
-        var newRefreshToken = payload.TryGetProperty("refresh_token", out var rt) ? rt.GetString() : refreshToken;
-        var expiresIn = payload.TryGetProperty("expires_in", out var exp) ? exp.GetInt32() : 3600;
+        var newAccessToken = payload.GetProperty(AuthConstants.IdToken).GetString();
+        var newRefreshToken = payload.TryGetProperty(AuthConstants.RefreshToken, out var rt) ? rt.GetString() : refreshToken;
+        var expiresIn = payload.TryGetProperty(AuthConstants.ExpiresIn, out var exp) ? exp.GetInt32() : 3600;
         var expiresAt = DateTime.UtcNow.AddSeconds(expiresIn);
 
-        return new List<AuthenticationToken>
-        {
-            new AuthenticationToken { Name = "access_token", Value = newAccessToken },
-            new AuthenticationToken { Name = "refresh_token", Value = newRefreshToken },
-            new AuthenticationToken { Name = "expires_at", Value = expiresAt.ToString("o") }
-        };
+        return
+        [
+            new AuthenticationToken { Name = AuthConstants.IdToken, Value = newAccessToken! },
+            new AuthenticationToken { Name = AuthConstants.RefreshToken, Value = newRefreshToken! },
+            new AuthenticationToken { Name = AuthConstants.ExpiresAt, Value = expiresAt.ToString("o") }
+        ];
     }
 }

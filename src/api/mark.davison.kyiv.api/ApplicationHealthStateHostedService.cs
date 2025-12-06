@@ -1,78 +1,24 @@
-﻿namespace mark.davison.kyiv.api;
+﻿using mark.davison.common.server.Services;
 
-public class ApplicationHealthStateHostedService : IHostedService
+namespace mark.davison.kyiv.api;
+
+public class ApplicationHealthStateHostedService : ApiApplicationHealthStateHostedService<KyivDbContext, AppSettings>
 {
-    private bool? _started { get; set; }
-    private bool? _ready { get; set; }
-    private bool? _healthy { get; set; }
-    private readonly TaskCompletionSource _readySource = new();
-
-    private readonly IHostApplicationLifetime _hostApplicationLifetime;
-    private readonly IDbContextFactory<KyivDbContext> _dbContextFactory;
-    private readonly IOptions<AppSettings> _appSettings;
-    private readonly IDataSeeder? _dataSeeder;
-
     public ApplicationHealthStateHostedService(
         IHostApplicationLifetime hostApplicationLifetime,
         IDbContextFactory<KyivDbContext> dbContextFactory,
         IOptions<AppSettings> appSettings,
-        IDataSeeder? dataSeeder)
+        IDataSeeder? dataSeeder
+    ) : base(
+        hostApplicationLifetime,
+        dbContextFactory,
+        appSettings,
+        dataSeeder)
     {
-        _hostApplicationLifetime = hostApplicationLifetime;
-        _dbContextFactory = dbContextFactory;
-        _appSettings = appSettings;
-        _dataSeeder = dataSeeder;
     }
 
-    public async Task StartAsync(CancellationToken cancellationToken)
+    protected override async Task InitDatabaseProduction(KyivDbContext dbContext, CancellationToken cancellationToken)
     {
-        await Task.CompletedTask;
-        _hostApplicationLifetime.ApplicationStarted.Register(() =>
-        {
-            _started = true;
-        });
-
-        _hostApplicationLifetime.ApplicationStopping.Register(() =>
-        {
-            _ready = false;
-        });
-
-        _hostApplicationLifetime.ApplicationStopped.Register(() =>
-        {
-            _ready = false;
-        });
-
-        _ = AdditionalStartAsync(cancellationToken);
-    }
-
-    public async Task StopAsync(CancellationToken cancellationToken)
-    {
-        await Task.CompletedTask;
-        _ready = false;
-    }
-
-    protected virtual async Task AdditionalStartAsync(CancellationToken cancellationToken)
-    {
-        {
-            var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-
-            if (_appSettings.Value.PRODUCTION_MODE)
-            {
-                await dbContext.Database.MigrateAsync();
-            }
-            else
-            {
-                await dbContext.Database.EnsureDeletedAsync(cancellationToken);
-                await dbContext.Database.EnsureCreatedAsync(cancellationToken);
-            }
-
-            if (_dataSeeder is not null)
-            {
-                await _dataSeeder.SeedDataAsync(cancellationToken);
-            }
-        }
-
-        _ready = true;
-        _readySource.SetResult();
+        await dbContext.Database.MigrateAsync(cancellationToken);
     }
 }

@@ -12,13 +12,13 @@ public class UserService<TDbContext> : IUserService
         _cache = cache;
     }
 
-    public async Task<User> FindOrCreateUserAsync(string provider, string providerKey, string email)
+    public async Task<User> FindOrCreateUserAsync(string provider, string providerKey, string displayName, string email, Guid defaultTenantId)
     {
         // Try to find existing user via external login
         var existingLogin = await _db.Set<ExternalLogin>()
             .Include(x => x.User)
-            .ThenInclude(x => x.UserRoles).
-            ThenInclude(x => x.Role)
+            .ThenInclude(x => x!.UserRoles)
+            .ThenInclude(x => x.Role)
             .FirstOrDefaultAsync(x => x.Provider == provider && x.ProviderSubject == providerKey);
 
         if (existingLogin?.User != null)
@@ -39,8 +39,11 @@ public class UserService<TDbContext> : IUserService
             user = new User
             {
                 Id = Guid.NewGuid(),
+                TenantId = defaultTenantId,
+                DisplayName = displayName,
                 Email = email,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                LastModified = DateTime.UtcNow
             };
             _db.Set<User>().Add(user);
         }
@@ -49,9 +52,11 @@ public class UserService<TDbContext> : IUserService
         var login = new ExternalLogin
         {
             Id = Guid.NewGuid(),
-            User = user,
+            UserId = user.Id,
             Provider = provider,
-            ProviderSubject = providerKey
+            ProviderSubject = providerKey,
+            Created = DateTime.UtcNow,
+            LastModified = DateTime.UtcNow
         };
 
         _db.Set<ExternalLogin>().Add(login);
@@ -103,13 +108,21 @@ public class UserService<TDbContext> : IUserService
 
     public async Task<User?> GetUserByIdAsync(Guid userId)
     {
-        var users = await _db.Set<User>()
+        return await _db.Set<User>()
             .Include(u => u.UserRoles)
             .Include(u => u.ExternalLogins)
-            .ToListAsync();
+            .FirstOrDefaultAsync(u => u.Id == userId);
+    }
 
+    public async Task UpdateTenant(Guid userId, Guid tenantId, CancellationToken cancellationToken)
+    {
+        var user = await _db
+            .Set<User>()
+            .FirstAsync(u => u.Id == userId, cancellationToken);
 
-        return users
-            .FirstOrDefault(u => u.Id == userId);
+        user.TenantId = tenantId;
+
+        _db.Update(user);
+        await _db.SaveChangesAsync(cancellationToken);
     }
 }

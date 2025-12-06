@@ -38,12 +38,15 @@ public static class AuthTokenHelpers
 
         var expiresAtUtc = expiresAt.ToUniversalTime();
 
-        if (dateService.Now > expiresAtUtc.AddSeconds(-60))
+        if (dateService.Now > expiresAtUtc.AddSeconds(-60) && !string.IsNullOrEmpty(refreshToken))
         {
-            var newTokens = await store.RefreshTokensAsync(refreshToken, client_id, client_secret, token_endpoint);
-            ticket.StoreTokens(newTokens);
+            if (await store.RefreshTokensAsync(refreshToken, client_id, client_secret, token_endpoint) is { } newTokens &&
+                newTokens.Any())
+            {
+                ticket.StoreTokens(newTokens);
 
-            return true;
+                return true;
+            }
         }
 
         return false;

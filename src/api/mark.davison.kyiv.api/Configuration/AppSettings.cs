@@ -1,8 +1,10 @@
-﻿namespace mark.davison.kyiv.api.Configuration;
+﻿using mark.davison.common.server.abstractions.Configuration;
 
-public class AppSettings
+namespace mark.davison.kyiv.api.Configuration;
+
+public class AppSettings : IRootAppSettings
 {
-    public const string SECTION = "KYIV";
+    public string SECTION => "KYIV";
 
     public bool PRODUCTION_MODE { get; set; }
     public AuthenticationSettings AUTHENTICATION { get; set; } = new();

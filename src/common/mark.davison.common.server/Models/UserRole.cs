@@ -2,6 +2,6 @@
 
 public class UserRole : BaseEntity
 {
-    public Guid RoleId { get; set; }
+    public required Guid RoleId { get; set; }
     public virtual Role? Role { get; set; }
 }

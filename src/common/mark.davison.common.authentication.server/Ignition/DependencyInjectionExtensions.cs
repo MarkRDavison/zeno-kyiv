@@ -1,19 +1,107 @@
 ﻿using mark.davison.common.authentication.server.Configuration;
+using mark.davison.common.authentication.server.Models;
+using mark.davison.common.server.abstractions.Services;
 using Microsoft.AspNetCore.Authentication.OAuth;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
-using System.Security.Claims;
+using Microsoft.Net.Http.Headers;
+using System.IdentityModel.Tokens.Jwt;
+using System.Net.Http.Headers;
 using System.Text.Json;
 
 namespace mark.davison.common.authentication.server.Ignition;
 
 public static class DependencyInjectionExtensions
 {
-    public static IServiceCollection AddServerAuthentication<TDbContext>(this IServiceCollection services, AuthenticationSettings authenticationSettings)
-        where TDbContext : DbContext
+    public static IServiceCollection AddJwtAuthentication(this IServiceCollection services, AuthenticationSettings authenticationSettings)
     {
+        var authBuilder = services
+            .AddSingleton<IAuthenticationProvidersService, AuthenticationProvidersService>()
+            .AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = AuthConstants.DynamicScheme;
+                options.DefaultChallengeScheme = AuthConstants.DynamicScheme;
+            })
+            .AddPolicyScheme(AuthConstants.DynamicScheme, AuthConstants.DynamicScheme, options =>
+            {
+                options.ForwardDefaultSelector = context =>
+                {
+                    var authHeader = context.Request.Headers[HeaderNames.Authorization].ToString();
 
+                    string issuer;
+
+                    if (AuthenticationHeaderValue.TryParse(authHeader, out var headerValue))
+                    {
+                        var scheme = headerValue.Scheme;
+                        if (!string.Equals(scheme, "Bearer", StringComparison.OrdinalIgnoreCase))
+                        {
+                            throw new InvalidOperationException("Missing or unknown authentication scheme");
+                        }
+                        var parameter = headerValue.Parameter;
+                        var handler = new JwtSecurityTokenHandler();
+                        if (!handler.CanReadToken(parameter))
+                        {
+                            throw new InvalidOperationException("Missing or unknown authentication provider");
+                        }
+
+                        var jwt = handler.ReadJwtToken(parameter);
+                        issuer = jwt.Issuer;
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("Missing or unknown authentication header");
+                    }
+
+                    foreach (var provider in authenticationSettings.Providers)
+                    {
+                        if (!string.IsNullOrWhiteSpace(provider.Authority) &&
+                            provider.Authority.StartsWith(issuer))
+                        {
+                            return provider.Name;
+                        }
+                    }
+
+                    throw new InvalidOperationException("Missing or unknown authentication provider");
+                };
+            });
+
+        foreach (var provider in authenticationSettings.Providers)
+        {
+            authBuilder
+                .AddJwtBearer(provider.Name, options =>
+                {
+                    options.Authority = provider.Authority;
+                    options.Audience = provider.ClientId;
+                });
+        }
+
+
+        return services;
+    }
+
+    public static IServiceCollection AddRemoteForwarderAuthentication(
+        this IServiceCollection services,
+        string remoteEndpointUri)
+    {
         services
+            .AddTransient<BearerTokenHandler>()
+            .AddHttpContextAccessor()
+            .AddHttpClient<RemoteUserAuthenticationService>((s, c) =>
+            {
+                c.BaseAddress = new Uri(remoteEndpointUri);
+            })
+            .AddHttpMessageHandler<BearerTokenHandler>();
+        services.AddScoped<IUserAuthenticationService, RemoteUserAuthenticationService>();
+
+        return services;
+    }
+    public static IServiceCollection AddOidcCookieAuthentication(
+        this IServiceCollection services,
+        AuthenticationSettings authenticationSettings,
+        Func<IServiceProvider, string, string, UserDto> createUser)
+    {
+        services
+            .AddSingleton<IAuthenticationProvidersService, AuthenticationProvidersService>()
             .AddAuthentication(options =>
             {
                 options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
@@ -41,27 +129,25 @@ public static class DependencyInjectionExtensions
                 });
 
         services
-            .AddScoped<IUserService, UserService<TDbContext>>()
-            .AddScoped<IUserRoleService, UserRoleService<TDbContext>>()
+            .AddSingleton<IOidcAuthenticationService, OidcAuthenticationService>()
             .AddSingleton<IRedisTicketStore, RedisTicketStore>()
-            .AddAuthenticationProviders<TDbContext>(authenticationSettings)
+            .AddAuthenticationProviders(authenticationSettings, createUser)
             .AddAuthorization();
 
         return services;
     }
 
-    private static IServiceCollection AddAuthenticationProviders<TDbContext>(this IServiceCollection services, AuthenticationSettings authenticationSettings)
-        where TDbContext : DbContext
+    private static IServiceCollection AddAuthenticationProviders(this IServiceCollection services, AuthenticationSettings authenticationSettings, Func<IServiceProvider, string, string, UserDto> createUser)
     {
         foreach (var provider in authenticationSettings.Providers)
         {
             if (string.Equals(provider.Type, AuthConstants.ProviderType_Oidc, StringComparison.OrdinalIgnoreCase))
             {
-                services.AddOidcAuthenticationProvider<TDbContext>(provider, authenticationSettings);
+                services.AddOidcAuthenticationProvider(provider, authenticationSettings, createUser);
             }
             else if (string.Equals(provider.Type, AuthConstants.ProviderType_Oauth, StringComparison.OrdinalIgnoreCase))
             {
-                services.AddOauthAuthenticationProvider<TDbContext>(provider, authenticationSettings);
+                services.AddOauthAuthenticationProvider(provider, authenticationSettings, createUser);
             }
             else
             {
@@ -72,8 +158,7 @@ public static class DependencyInjectionExtensions
         return services;
     }
 
-    private static void AddOidcAuthenticationProvider<TDbContext>(this IServiceCollection services, AuthenticationProviderConfiguration providerConfiguration, AuthenticationSettings authenticationSettings)
-        where TDbContext : DbContext
+    private static void AddOidcAuthenticationProvider(this IServiceCollection services, AuthenticationProviderConfiguration providerConfiguration, AuthenticationSettings authenticationSettings, Func<IServiceProvider, string, string, UserDto> createUser)
     {
         services
             .AddAuthentication()
@@ -93,11 +178,10 @@ public static class DependencyInjectionExtensions
                     NameClaimType = "name",
                     RoleClaimType = ClaimTypes.Role
                 };
-                options.Events = CreateOidcEvents<TDbContext>(providerConfiguration.Name, authenticationSettings);
+                options.Events = CreateOidcEvents(providerConfiguration.Name, authenticationSettings, createUser);
             });
     }
-    private static void AddOauthAuthenticationProvider<TDbContext>(this IServiceCollection services, AuthenticationProviderConfiguration providerConfiguration, AuthenticationSettings authenticationSettings)
-        where TDbContext : DbContext
+    private static void AddOauthAuthenticationProvider(this IServiceCollection services, AuthenticationProviderConfiguration providerConfiguration, AuthenticationSettings authenticationSettings, Func<IServiceProvider, string, string, UserDto> createUser)
     {
         services
             .AddAuthentication()
@@ -112,29 +196,161 @@ public static class DependencyInjectionExtensions
                 options.UserInformationEndpoint = providerConfiguration.UserInformationEndpoint ?? string.Empty;
                 options.SaveTokens = true;
                 options.Scope.Clear();
-                foreach (var s in providerConfiguration.Scope ?? Array.Empty<string>()) options.Scope.Add(s);
+                foreach (var s in providerConfiguration.Scope ?? [])
+                {
+                    options.Scope.Add(s);
+                }
 
                 options.ClaimActions.MapJsonKey(ClaimTypes.NameIdentifier, "id");
                 options.ClaimActions.MapJsonKey(ClaimTypes.Name, "name");
                 options.ClaimActions.MapJsonKey(ClaimTypes.Email, "email");
 
-                options.Events = CreateOAuthEvents<TDbContext>(providerConfiguration.Name, authenticationSettings);
+                options.Events = CreateOAuthEvents(providerConfiguration.Name, authenticationSettings, createUser);
             });
     }
 
+    // TODO: Consolidate
+    private static OAuthEvents CreateOAuthEvents(string providerName, AuthenticationSettings authenticationSettings, Func<IServiceProvider, string, string, UserDto> createUser)
+    {
+        return new OAuthEvents
+        {
+            OnCreatingTicket = async context =>
+            {
+                var http = context.HttpContext;
+                var userAuthenticationService = http.RequestServices.GetRequiredService<IUserAuthenticationService>();
+                var provider = context.Scheme.Name;
+                var identity = (ClaimsIdentity)context.Principal.Identity!;
 
-    private static OpenIdConnectEvents CreateOidcEvents<TDbContext>(string providerName, AuthenticationSettings authenticationSettings)
-        where TDbContext : DbContext
+                // await context.Backchannel.GetStringAsync(context.Options.UserInformationEndpoint)
+                var userJson = JsonDocument.Parse(await context.Backchannel.GetStringAsync(context.Options.UserInformationEndpoint));
+                var providerSub = userJson.RootElement.GetProperty("id").GetString()!;
+                var email = userJson.RootElement.GetProperty("email").GetString()!;
+                var name = userJson.RootElement.GetProperty("name").GetString() ?? email;
+
+                //  Detect linking mode
+                var isLinking = context.Properties?.Items.TryGetValue("linking", out var linkFlag) == true && linkFlag == "true";
+                var linkingUserId = context.Properties?.Items.TryGetValue("userId", out var uid) == true ? uid : null;
+
+                if (isLinking && Guid.TryParse(linkingUserId, out var existingUserId))
+                {
+                    var user = await userAuthenticationService.GetUserByIdAsync(existingUserId, http.RequestAborted);
+
+                    var existingLink = await userAuthenticationService.GetExternalLoginForProviderAsync(provider, providerSub, http.RequestAborted);
+
+                    var alreadyLinked = existingLink is not null;
+
+                    if (!alreadyLinked)
+                    {
+                        await userAuthenticationService.AddExternalLoginAsync(existingUserId, provider, providerSub, http.RequestAborted);
+                    }
+                    else
+                    {
+                        if (existingLink?.UserId != user.Id)
+                        {
+                            // Store error message in temp property to show after redirect
+                            context.Properties.Items["LinkError"] = $"This {provider} account is already linked to another user.";
+
+                            // Redirect back to profile (or a dedicated page)
+                            context.Response.Redirect($"/account/linkerror?message={Uri.EscapeDataString(context.Properties.Items["LinkError"])}");
+
+                            return;
+                        }
+                    }
+
+                    context.Response.Redirect("/account/postlink");
+                    return;
+                }
+
+                //  Normal login flow
+                var externalLogin = await userAuthenticationService.GetExternalLoginForProviderAsync(provider, providerSub, http.RequestAborted);
+
+                Guid userId;
+                if (externalLogin != null)
+                {
+                    userId = externalLogin.UserId;
+                }
+                else
+                {
+                    var user = await userAuthenticationService.GetUserByEmailAsync(email, http.RequestAborted)
+                           ?? createUser(http.RequestServices, email, name);
+
+                    var userById = await userAuthenticationService.GetUserByIdAsync(user.Id, http.RequestAborted);
+
+                    if (userById is null)
+                    {
+                        var rolesToCreate = new List<string> { "User" };
+                        if (string.Equals(user.Email, authenticationSettings.ADMIN_EMAIL, StringComparison.OrdinalIgnoreCase))
+                        {
+                            rolesToCreate.Add("Admin");
+                        }
+
+                        await userAuthenticationService.CreateUserWithRolesAsync(user, rolesToCreate, http.RequestAborted);
+                    }
+
+
+                    userId = user.Id;
+
+                    await userAuthenticationService.AddExternalLoginAsync(user.Id, provider, providerSub, http.RequestAborted);
+                }
+
+                identity.AddClaim(new Claim("InternalUserId", userId.ToString()));
+                identity.AddClaim(new Claim("LoggedInProvider", provider));
+
+                var roles = await userAuthenticationService.GetRolesForUserIdAsync(userId, http.RequestAborted);
+                foreach (var r in roles)
+                {
+                    identity.AddClaim(new Claim(ClaimTypes.Role, r));
+                }
+
+                // Cookie is issued manually here
+                var props = new AuthenticationProperties
+                {
+                    IsPersistent = true
+                };
+                props.Items["provider"] = providerName;
+                props.Items["client_id"] = context.Options.ClientId;
+                props.Items["client_secret"] = context.Options.ClientSecret;
+                props.Items["token_endpoint"] = context.Options.TokenEndpoint;
+
+                await http.SignInAsync(
+                    CookieAuthenticationDefaults.AuthenticationScheme,
+                    new ClaimsPrincipal(identity),
+                    props);
+            }
+        };
+    }
+
+    // TODO: Consolidate
+    private static OpenIdConnectEvents CreateOidcEvents(string providerName, AuthenticationSettings authenticationSettings, Func<IServiceProvider, string, string, UserDto> createUser)
     {
         return new OpenIdConnectEvents
         {
+            OnRedirectToIdentityProvider = async context =>
+            {
+                context.ProtocolMessage.SetParameter("access_type", "offline");
+                context.ProtocolMessage.SetParameter("prompt", "consent");
+                await Task.CompletedTask;
+            },
             OnTokenValidated = async context =>
             {
+                if (context.Properties is null)
+                {
+                    throw new InvalidOperationException("OnTokenValidated - invalid properties");
+                }
+
                 AuthTokenHelpers.NormalizeTokenTimes(context.Properties);
 
+                var accessToken = context.TokenEndpointResponse?.IdToken;
+                string tokenEndpoint = string.Empty;
+
+                if (context.Options.ConfigurationManager is { } cm)
+                {
+                    var config = await cm.GetConfigurationAsync(CancellationToken.None);
+
+                    tokenEndpoint = config.TokenEndpoint;
+                }
+
                 var http = context.HttpContext;
-                var db = http.RequestServices.GetRequiredService<TDbContext>();
-                var roleService = http.RequestServices.GetRequiredService<IUserRoleService>();
                 var provider = context.Scheme.Name;
 
                 var principal = context.Principal!;
@@ -145,33 +361,31 @@ public static class DependencyInjectionExtensions
                 var email = principal.FindFirst(ClaimTypes.Email)?.Value
                             ?? throw new InvalidDataException("No email from claim");
 
-                // 🔹 Detect linking mode
+                var name = principal.FindFirst(ClaimTypes.Name)?.Value
+                            ?? email;
+
+                //  Detect linking mode
                 var isLinking = context.Properties?.Items.TryGetValue("linking", out var linkFlag) == true && linkFlag == "true";
                 var linkingUserId = context.Properties?.Items.TryGetValue("userId", out var uid) == true ? uid : null;
 
-                User user;
+                var userAuthenticationService = http.RequestServices.GetRequiredService<IUserAuthenticationService>();
+
+                if (!string.IsNullOrEmpty(accessToken))
+                {
+                    userAuthenticationService.SetToken(accessToken);
+                }
+
                 if (isLinking && Guid.TryParse(linkingUserId, out var existingUserId))
                 {
-                    user = await db.Set<User>().FirstAsync(u => u.Id == existingUserId);
+                    var user = await userAuthenticationService.GetUserByIdAsync(existingUserId, http.RequestAborted);
 
-                    var existingLink = await db.Set<ExternalLogin>()
-                        .Include(l => l.User)
-                        .FirstOrDefaultAsync(l => l.Provider == provider && l.ProviderSubject == providerSub);
+                    var existingLink = await userAuthenticationService.GetExternalLoginForProviderAsync(provider, providerSub, http.RequestAborted);
 
                     var alreadyLinked = existingLink is not null;
 
                     if (!alreadyLinked)
                     {
-                        db.Set<ExternalLogin>().Add(new ExternalLogin
-                        {
-                            Id = Guid.NewGuid(),
-                            UserId = user.Id,
-                            Provider = provider,
-                            ProviderSubject = providerSub,
-                            Created = DateTime.UtcNow,
-                            LastModified = DateTime.UtcNow
-                        });
-                        await db.SaveChangesAsync();
+                        await userAuthenticationService.AddExternalLoginAsync(existingUserId, provider, providerSub, http.RequestAborted);
                     }
                     else
                     {
@@ -194,219 +408,53 @@ public static class DependencyInjectionExtensions
                     return;
                 }
 
-                // 🔹 Normal login flow
-                var externalLogin = await db.Set<ExternalLogin>().Include(l => l.User)
-                    .FirstOrDefaultAsync(l => l.Provider == provider && l.ProviderSubject == providerSub);
+                //  Normal login flow
+                var externalLogin = await userAuthenticationService.GetExternalLoginForProviderAsync(provider, providerSub, http.RequestAborted);
 
-                if (externalLogin?.User != null)
-                    user = externalLogin.User;
+                Guid userId;
+                if (externalLogin != null)
+                {
+                    userId = externalLogin.UserId;
+                }
                 else
                 {
-                    user = await db.Set<User>().FirstOrDefaultAsync(u => u.Email == email)
-                           ?? new User { Id = Guid.NewGuid(), Email = email, DisplayName = email, CreatedAt = DateTime.UtcNow, IsActive = true };
+                    var user = await userAuthenticationService.GetUserByEmailAsync(email, http.RequestAborted)
+                           ?? createUser(http.RequestServices, email, name);
 
-                    if (!db.Set<User>().Any(u => u.Id == user.Id))
+                    var userById = await userAuthenticationService.GetUserByIdAsync(user.Id, http.RequestAborted);
+
+                    if (userById is null)
                     {
-                        db.Set<User>().Add(user);
-                        var defaultRole = await db.Set<Role>().FirstAsync(r => r.Name == "User"); // TODO: Use constant ids??? here and other place
-                        db.Set<UserRole>().Add(new UserRole
-                        {
-                            Id = Guid.NewGuid(),
-                            UserId = user.Id,
-                            RoleId = defaultRole.Id,
-                            Created = DateTime.UtcNow,
-                            LastModified = DateTime.UtcNow
-                        });
-
+                        var rolesToCreate = new List<string> { "User" };
                         if (string.Equals(user.Email, authenticationSettings.ADMIN_EMAIL, StringComparison.OrdinalIgnoreCase))
                         {
-                            var adminRole = await db.Set<Role>().FirstAsync(r => r.Name == "Admin"); // TODO: Use constant ids??? here and other place
-                            var alreadyAdmin = await db.Set<UserRole>().AnyAsync(ur => ur.UserId == user.Id && ur.RoleId == adminRole.Id);
-                            if (!alreadyAdmin)
-                            {
-                                db.Set<UserRole>().Add(new UserRole
-                                {
-                                    Id = Guid.NewGuid(),
-                                    UserId = user.Id,
-                                    RoleId = adminRole.Id,
-                                    Created = DateTime.UtcNow,
-                                    LastModified = DateTime.UtcNow
-                                });
-                            }
+                            rolesToCreate.Add("Admin");
                         }
+
+                        await userAuthenticationService.CreateUserWithRolesAsync(user, rolesToCreate, http.RequestAborted);
                     }
 
-                    db.Set<ExternalLogin>().Add(new ExternalLogin
-                    {
-                        Id = Guid.NewGuid(),
-                        UserId = user.Id,
-                        Provider = provider,
-                        ProviderSubject = providerSub,
-                        Created = DateTime.UtcNow,
-                        LastModified = DateTime.UtcNow
-                    });
-
-                    await db.SaveChangesAsync();
+                    userId = user.Id;
+                    await userAuthenticationService.AddExternalLoginAsync(user.Id, provider, providerSub, http.RequestAborted);
                 }
 
                 var identity = (ClaimsIdentity)principal.Identity!;
-                identity.AddClaim(new Claim("InternalUserId", user.Id.ToString()));
+                identity.AddClaim(new Claim("InternalUserId", userId.ToString()));
                 identity.AddClaim(new Claim("LoggedInProvider", provider));
 
-                context.Properties.Items["provider"] = providerName;
-                context.Properties.Items["client_id"] = context.Options.ClientId;
-                context.Properties.Items["client_secret"] = context.Options.ClientSecret;
-                context.Properties.Items["token_endpoint"] = context.Options.Authority + "/protocol/openid-connect/token"; // adjust per provider
+                if (context.Properties is { } properties)
+                {
+                    properties.Items["provider"] = providerName;
+                    properties.Items["client_id"] = context.Options.ClientId;
+                    properties.Items["client_secret"] = context.Options.ClientSecret;
+                    properties.Items["token_endpoint"] = tokenEndpoint;
+                }
 
-                var roles = await roleService.GetRolesForUserAsync(user.Id);
+                var roles = await userAuthenticationService.GetRolesForUserIdAsync(userId, http.RequestAborted);
                 foreach (var r in roles)
                 {
                     identity.AddClaim(new Claim(ClaimTypes.Role, r));
                 }
-            }
-        };
-    }
-    private static OAuthEvents CreateOAuthEvents<TDbContext>(string providerName, AuthenticationSettings authenticationSettings)
-        where TDbContext : DbContext
-    {
-        return new OAuthEvents
-        {
-            OnCreatingTicket = async context =>
-            {
-                var http = context.HttpContext;
-                var db = http.RequestServices.GetRequiredService<TDbContext>();
-                var roleService = http.RequestServices.GetRequiredService<IUserRoleService>();
-                var provider = context.Scheme.Name;
-                var identity = (ClaimsIdentity)context.Principal.Identity!;
-
-                var userJson = JsonDocument.Parse(await context.Backchannel.GetStringAsync(context.Options.UserInformationEndpoint));
-                var providerSub = userJson.RootElement.GetProperty("id").GetString()!;
-                var email = userJson.RootElement.GetProperty("email").GetString()!;
-
-                // 🔹 Detect linking mode
-                var isLinking = context.Properties?.Items.TryGetValue("linking", out var linkFlag) == true && linkFlag == "true";
-                var linkingUserId = context.Properties?.Items.TryGetValue("userId", out var uid) == true ? uid : null;
-
-                User user;
-                if (isLinking && Guid.TryParse(linkingUserId, out var existingUserId))
-                {
-                    user = await db.Set<User>().FirstAsync(u => u.Id == existingUserId);
-
-
-                    var existingLink = await db.Set<ExternalLogin>()
-                        .Include(l => l.User)
-                        .FirstOrDefaultAsync(l => l.Provider == provider && l.ProviderSubject == providerSub);
-
-                    var alreadyLinked = existingLink is not null;
-
-                    if (!alreadyLinked)
-                    {
-                        db.Set<ExternalLogin>().Add(new ExternalLogin
-                        {
-                            Id = Guid.NewGuid(),
-                            UserId = user.Id,
-                            Provider = provider,
-                            ProviderSubject = providerSub,
-                            Created = DateTime.UtcNow,
-                            LastModified = DateTime.UtcNow
-                        });
-                        await db.SaveChangesAsync();
-                    }
-                    else
-                    {
-                        if (existingLink?.UserId != user.Id)
-                        {
-                            // Store error message in temp property to show after redirect
-                            context.Properties.Items["LinkError"] = $"This {provider} account is already linked to another user.";
-
-                            // Redirect back to profile (or a dedicated page)
-                            context.Response.Redirect($"/account/linkerror?message={Uri.EscapeDataString(context.Properties.Items["LinkError"])}");
-
-                            return;
-                        }
-                    }
-
-                    context.Response.Redirect("/account/postlink");
-                    return;
-                }
-
-                // 🔹 Normal login flow
-                var externalLogin = await db.Set<ExternalLogin>().Include(l => l.User)
-                    .FirstOrDefaultAsync(l => l.Provider == provider && l.ProviderSubject == providerSub);
-
-                if (externalLogin?.User != null)
-                    user = externalLogin.User;
-                else
-                {
-                    user = await db.Set<User>().FirstOrDefaultAsync(u => u.Email == email)
-                           ?? new User { Id = Guid.NewGuid(), Email = email, DisplayName = email, CreatedAt = DateTime.UtcNow, IsActive = true };
-
-                    if (!db.Set<User>().Any(u => u.Id == user.Id))
-                    {
-                        db.Set<User>().Add(user);
-                        var defaultRole = await db.Set<Role>().FirstAsync(r => r.Name == "User");
-                        db.Set<UserRole>().Add(new UserRole
-                        {
-                            Id = Guid.NewGuid(),
-                            UserId = user.Id,
-                            RoleId = defaultRole.Id,
-                            Created = DateTime.UtcNow,
-                            LastModified = DateTime.UtcNow
-                        });
-
-                        if (string.Equals(user.Email, authenticationSettings.ADMIN_EMAIL, StringComparison.OrdinalIgnoreCase))
-                        {
-                            var adminRole = await db.Set<Role>().FirstAsync(r => r.Name == "Admin"); // TODO: Use constant ids??? here and other place
-                            var alreadyAdmin = await db.Set<UserRole>().AnyAsync(ur => ur.UserId == user.Id && ur.RoleId == adminRole.Id);
-                            if (!alreadyAdmin)
-                            {
-                                db.Set<UserRole>().Add(new UserRole
-                                {
-                                    Id = Guid.NewGuid(),
-                                    UserId = user.Id,
-                                    RoleId = adminRole.Id,
-                                    Created = DateTime.UtcNow,
-                                    LastModified = DateTime.UtcNow
-                                });
-                            }
-                        }
-                    }
-
-                    db.Set<ExternalLogin>().Add(new ExternalLogin
-                    {
-                        Id = Guid.NewGuid(),
-                        UserId = user.Id,
-                        Provider = provider,
-                        ProviderSubject = providerSub,
-                        Created = DateTime.UtcNow,
-                        LastModified = DateTime.UtcNow
-                    });
-                    await db.SaveChangesAsync();
-                }
-
-                identity.AddClaim(new Claim("InternalUserId", user.Id.ToString()));
-                identity.AddClaim(new Claim("LoggedInProvider", provider));
-
-                var roles = await roleService.GetRolesForUserAsync(user.Id);
-                foreach (var r in roles)
-                {
-                    identity.AddClaim(new Claim(ClaimTypes.Role, r));
-                }
-
-                // Cookie is issued manually here
-                var props = new AuthenticationProperties
-                {
-                    IsPersistent = true
-                };
-                props.Items["provider"] = providerName;
-                props.Items["client_id"] = context.Options.ClientId;
-                props.Items["client_secret"] = context.Options.ClientSecret;
-                props.Items["token_endpoint"] = context.Options.TokenEndpoint;
-
-                await http.SignInAsync(
-                    CookieAuthenticationDefaults.AuthenticationScheme,
-                    new ClaimsPrincipal(identity),
-                    props);
             }
         };
     }

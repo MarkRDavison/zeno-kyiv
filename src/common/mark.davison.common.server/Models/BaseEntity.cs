@@ -3,10 +3,10 @@
 
 public class BaseEntity
 {
-    public Guid Id { get; set; }
-    public DateTime Created { get; set; }
-    public DateTime LastModified { get; set; }
-    public Guid UserId { get; set; }
+    public required Guid Id { get; set; }
+    public required DateTime Created { get; set; }
+    public required DateTime LastModified { get; set; }
+    public required Guid UserId { get; set; }
 
     public virtual User? User { get; set; }
 }

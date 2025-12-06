@@ -2,12 +2,15 @@
   <Folder Name="/0. common/">
     <Project Path="common/mark.davison.common.abstractions/mark.davison.common.abstractions.csproj" Id="d90740fe-23de-4023-a243-b8bb5d3e0f7e" />
     <Project Path="common/mark.davison.common.authentication.server/mark.davison.common.authentication.server.csproj" Id="3818cce9-46d4-49e7-8a87-0b3f47c29542" />
+    <Project Path="common/mark.davison.common.generators/mark.davison.common.generators.csproj" Id="c8e316f8-a720-4dc9-b69f-b000c0a310c2" />
     <Project Path="common/mark.davison.common.persistence.abstractions/mark.davison.common.persistence.abstractions.csproj" Id="873d7584-a389-4170-9963-dab8e597e33a" />
+    <Project Path="common/mark.davison.common.server.abstractions/mark.davison.common.server.abstractions.csproj" Id="96275c83-fff9-4934-861f-68ee0972e0cd" />
     <Project Path="common/mark.davison.common.server/mark.davison.common.server.csproj" Id="fb260c1c-24b0-4a87-a81a-4215853b8c66" />
     <Project Path="common/mark.davison.common/mark.davison.common.csproj" Id="8f669a39-7d02-4274-9b02-127be9d1653d" />
   </Folder>
   <Folder Name="/0. common/tests/">
     <Project Path="common/tests/mark.davison.common.authentication.tests/mark.davison.common.authentication.tests.csproj" Id="280bd76d-9de7-4375-8d80-5022821dc6b5" />
+    <Project Path="common/tests/mark.davison.common.generators.tests/mark.davison.common.generators.tests.csproj" Id="ca0d6c88-9d66-4089-8048-c588b8c766ff" />
   </Folder>
   <Folder Name="/1. api/">
     <Project Path="api/mark.davison.kyiv.api.models.configuration/mark.davison.kyiv.api.models.configuration.csproj" Id="76a1079b-632e-47ca-8332-9c7deb3e56f2" />
@@ -16,7 +19,9 @@
   </Folder>
   <Folder Name="/1. api/migrations/" />
   <Folder Name="/1. api/tests/" />
-  <Folder Name="/2. bff/" />
+  <Folder Name="/2. bff/">
+    <Project Path="bff/mark.davison.kyiv.bff/mark.davison.kyiv.bff.csproj" Id="d2c966d6-099f-4f3d-9d37-7d5978e60652" />
+  </Folder>
   <Folder Name="/2. bff/tests/" />
   <Folder Name="/3. shared/">
     <Project Path="shared/mark.davison.kyiv.shared.constants/mark.davison.kyiv.shared.constants.csproj" Id="21dfc549-4723-48d3-9878-574218355aab" />
@@ -31,5 +36,7 @@
   <Folder Name="/Solution Items/">
     <File Path="../.gitignore" />
     <File Path="../README.md" />
+    <File Path=".editorconfig" />
+    <File Path="Directory.Build.props" />
   </Folder>
 </Solution>

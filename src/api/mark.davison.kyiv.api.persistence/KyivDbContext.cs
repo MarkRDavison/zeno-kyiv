@@ -1,7 +1,4 @@
-﻿using mark.davison.common.server.Models;
-using mark.davison.common.server.Models.EntityConfiguration;
-
-namespace mark.davison.kyiv.api.persistence;
+﻿namespace mark.davison.kyiv.api.persistence;
 
 public sealed class KyivDbContext : DbContext
 {
@@ -19,4 +16,5 @@ public sealed class KyivDbContext : DbContext
     public DbSet<ExternalLogin> ExternalLogins => Set<ExternalLogin>();
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<UserRole> UserRoles => Set<UserRole>();
+    public DbSet<Tenant> Tenants => Set<Tenant>();
 }

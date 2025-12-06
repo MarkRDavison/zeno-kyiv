@@ -1,27 +1,30 @@
-﻿namespace mark.davison.common.authentication.server.Ignition;
+﻿using mark.davison.common.server.abstractions.Services;
+using Microsoft.AspNetCore.Mvc;
+using System.Text;
+
+namespace mark.davison.common.authentication.server.Ignition;
 
 public static class RouteExtensions
 {
-    public static IEndpointRouteBuilder MapAuthentication<TDbContext>(this IEndpointRouteBuilder endpoints)
-        where TDbContext : DbContext
+    public static IEndpointRouteBuilder MapAuthenticationEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet("/", GetRoot);
         endpoints.MapGet("/account/login", GetLogin);
         endpoints.MapGet("/account/login/{provider}", GetLoginForProvider);
-        endpoints.MapGet("/account/postlogin", GetPostLogin<TDbContext>);
+        endpoints.MapGet("/account/postlogin", GetPostLogin);
         endpoints.MapGet("/account/profile", GetAccountProfile);
         endpoints.MapGet("/account/logout", GetLogout);
-        endpoints.MapGet("/account/links", GetLinks<TDbContext>);
+        endpoints.MapGet("/account/links", GetLinks);
         endpoints.MapGet("/account/link/{provider}", GetLinkForProvider);
-        endpoints.MapGet("/account/link-callback", GetLinkCallback2<TDbContext>);
+        endpoints.MapGet("/account/link-callback", GetLinkCallback2);
         endpoints.MapGet("/account/postlink", GetPostLink);
         endpoints.MapGet("/account/linkerror", GetLinkError);
-        endpoints.MapGet("/account/unlink/{provider}", GetUnlinkForProvider<TDbContext>);
+        endpoints.MapGet("/account/unlink/{provider}", GetUnlinkForProvider);
         endpoints.MapGet("/admin/secret", GetAdminSecret);
+        endpoints.MapGet("/account/tenant/create", CreateTenant);
 
         return endpoints;
     }
-
     private static IResult GetRoot(HttpContext context)
     {
         return Results.Redirect("/account/login");
@@ -29,16 +32,18 @@ public static class RouteExtensions
 
     private static IResult GetLogin(HttpContext context)
     {
-        var html =
-        """
-            <h2>Login</h2>
-            <a href="/account/login/google">Login with Google</a><br/>
-            <a href="/account/login/github">Login with GitHub</a><br/>
-            <a href="/account/login/microsoft">Login with Microsoft</a><br/>
-            <a href="/account/login/keycloak">Login with Keycloak</a><br/>
-        """;
+        var providersService = context.RequestServices.GetRequiredService<IAuthenticationProvidersService>();
 
-        return Results.Content(html, "text/html");
+        var builder = new StringBuilder();
+
+        builder.AppendLine("<h2>Login</h2>");
+
+        foreach (var p in providersService.GetConfiguredProviders())
+        {
+            builder.AppendLine($"<a href=\"/account/login/{p.ToLower()}\">Login with {p}</a><br/>");
+        }
+
+        return Results.Content(builder.ToString(), "text/html");
     }
 
     private static IResult GetLoginForProvider(string provider, HttpContext context)
@@ -48,18 +53,34 @@ public static class RouteExtensions
             RedirectUri = "/account/postlogin"
         };
 
-        return Results.Challenge(props, [provider]);
+        var providersService = context.RequestServices.GetRequiredService<IAuthenticationProvidersService>();
+
+        foreach (var p in providersService.GetConfiguredProviders())
+        {
+            if (string.Equals(provider, p, StringComparison.OrdinalIgnoreCase))
+            {
+                return Results.Challenge(props, [p]);
+            }
+        }
+
+        throw new InvalidOperationException("Invalid authentication provider");
     }
 
-    private static async Task<IResult> GetPostLogin<TDbContext>(HttpContext context, TDbContext dbContext)
-        where TDbContext : DbContext
+    private static async Task<IResult> GetPostLogin(HttpContext context, CancellationToken _)
     {
+        var userAuthenticationService = context.RequestServices.GetRequiredService<IUserAuthenticationService>();
         var authResult = await context.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         var isAuth = context.User.Identity?.IsAuthenticated == true;
 
         string tokenInfo = "(no access token)";
         if (authResult.Succeeded && authResult.Properties != null)
         {
+            if (authResult.Properties.GetTokenValue("id_token") is { } accessToken &&
+                context.User.FindFirstValue("LoggedInProvider") is { } provider)
+            {
+                userAuthenticationService.SetToken(accessToken);
+            }
+
             var expiresAtValue = authResult.Properties.GetTokenValue("expires_at");
             if (DateTime.TryParse(expiresAtValue, out var expiresAtLocal))
             {
@@ -71,16 +92,12 @@ public static class RouteExtensions
             }
         }
 
-        List<string> roles = new();
+        List<string> roles = [];
         var internalId = context.User.FindFirstValue("InternalUserId");
         if (internalId != null)
         {
             var userId = Guid.Parse(internalId);
-            roles = await dbContext.Set<UserRole>()
-                .Include(ur => ur.Role)
-                .Where(ur => ur.UserId == userId)
-                .Select(ur => ur.Role.Name)
-                .ToListAsync();
+            roles = [.. await userAuthenticationService.GetRolesForUserIdAsync(userId, context.RequestAborted)];
         }
 
         var html = $@"
@@ -100,7 +117,7 @@ public static class RouteExtensions
         return Results.Content(html, "text/html");
     }
 
-    private static async Task<IResult> GetAccountProfile(HttpContext context, IUserService userService)
+    private static async Task<IResult> GetAccountProfile(HttpContext context, CancellationToken _)
     {
         if (context.User.Identity?.IsAuthenticated != true)
         {
@@ -114,29 +131,48 @@ public static class RouteExtensions
             return Results.Problem("No InternalUserId claim found");
         }
 
+        var userAuthenticationService = context.RequestServices.GetRequiredService<IUserAuthenticationService>();
+
         var userId = Guid.Parse(internalId);
-        var user = await userService.GetUserByIdAsync(userId);
+        var user = await userAuthenticationService.GetUserByIdAsync(userId, context.RequestAborted);
+
+        if (user is null)
+        {
+            return Results.Redirect("/account/login");
+        }
 
         // Find which provider was used for the current login
         var currentProvider = context.User.FindFirst("LoggedInProvider")?.Value ?? "(unknown)";
 
+        var externalLogins = await userAuthenticationService.GetExternalLoginsForUserIdAsync(userId, context.RequestAborted);
+
         // External logins the user already has
-        var linkedProviders = user.ExternalLogins.Select(p => p.Provider).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var linkedProviders = externalLogins.Select(p => p.Provider).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         // Generate HTML list of linked providers
         var linkedList = string.Join("", linkedProviders.Select(p => $"<li>{p}<a href='/account/unlink/{p}'>Unlink</a></li>"));
 
         // Generate "link new provider" buttons for unlinked providers
-        var allProviders = new[] { "google", "keycloak", "gitHub", "microsoft" };
+        var allProviders = new[] { "Google", "Keycloak", "Github", "Microsoft" };
         var linkButtons = string.Join("", allProviders
             .Where(p => !linkedProviders.Contains(p))
             .Select(p => $"<a href='/account/link/{p}'>Link {p}</a><br/>"));
+
+        var tenant = await userAuthenticationService.GetTenantById(user.TenantId, CancellationToken.None);
+
+        var createTenantLink = string.Empty;
+        if (tenant?.Id == Guid.Parse("F4380FD7-99C7-4512-A23E-2962AE65381A"))
+        {
+            createTenantLink = $"<a href='/account/tenant/create'>Create a personal tenant</a>";
+        }
 
         var html = $"""
             <h2>Profile</h2>
             <p>Signed in as: {context.User.Identity?.Name}</p>
             <p>Current session provider: {currentProvider}</p>
             <p>Your internal user ID: {userId}</p>
+            <p>Your tenant: {(tenant?.Name ?? "<NO TENANT>")}</p>
+            {createTenantLink}
             <p>External providers linked:</p>
             <ul>{linkedList}</ul>
             <h3>Link another provider</h3>
@@ -154,22 +190,20 @@ public static class RouteExtensions
         return Results.Redirect("/");
     }
 
-    private static async Task<IResult> GetLinks<TDbContext>(HttpContext context, TDbContext dbContext)
-        where TDbContext : DbContext
+    private static async Task<IResult> GetLinks(HttpContext context, [FromServices] IUserAuthenticationService userAuthenticationService)
     {
         var userIdClaim = context.User.FindFirst("InternalUserId");
         if (userIdClaim is null)
+        {
             return Results.Unauthorized();
+        }
 
         var userId = Guid.Parse(userIdClaim.Value);
 
-        var links = await dbContext.Set<ExternalLogin>()
-            .Where(l => l.UserId == userId)
-            .Select(l => l.Provider)
-            .ToListAsync();
+        var links = await userAuthenticationService.GetExternalLoginsForUserIdAsync(userId, context.RequestAborted);
 
-        var allProviders = new[] { "google", "keycloak" };
-        var unlinked = allProviders.Except(links).ToList();
+        var allProviders = new[] { "Google", "Keycloak", "Github", "Microsoft" };
+        var unlinked = allProviders.Except(links.Select(_ => _.Provider)).ToList();
 
         var html = $"""
             <html>
@@ -207,8 +241,7 @@ public static class RouteExtensions
     }
 
     // TODO: This versus GetLinkCallback
-    private static async Task<IResult> GetLinkCallback2<TDbContext>(HttpContext context, TDbContext dbContext)
-        where TDbContext : DbContext
+    private static async Task<IResult> GetLinkCallback2(HttpContext context, [FromServices] IUserAuthenticationService userAuthenticationService)
     {
         if (!context.User.Identity?.IsAuthenticated ?? true)
         {
@@ -242,7 +275,7 @@ public static class RouteExtensions
                           ?? principal.FindFirst(ClaimTypes.NameIdentifier)?.Value
                           ?? throw new InvalidDataException("No provider subject");
 
-        var existing = await dbContext.Set<ExternalLogin>().FirstOrDefaultAsync(l => l.Provider == provider && l.ProviderSubject == providerSub);
+        var existing = await userAuthenticationService.GetExternalLoginForProviderAsync(provider, providerSub, context.RequestAborted);
         if (existing != null && existing.UserId != linkingUserId)
         {
             return Results.Content($"This {provider} account is already linked to another user.", "text/html");
@@ -250,16 +283,7 @@ public static class RouteExtensions
 
         if (existing == null)
         {
-            dbContext.Set<ExternalLogin>().Add(new ExternalLogin
-            {
-                Id = Guid.NewGuid(),
-                Provider = provider,
-                ProviderSubject = providerSub,
-                UserId = linkingUserId,
-                Created = DateTime.UtcNow,
-                LastModified = DateTime.UtcNow
-            });
-            await dbContext.SaveChangesAsync();
+            await userAuthenticationService.AddExternalLoginAsync(linkingUserId, provider, providerSub, context.RequestAborted);
         }
 
         return Results.Redirect("/account/profile");
@@ -293,8 +317,7 @@ public static class RouteExtensions
         return Results.Content(html, "text/html");
     }
 
-    private static async Task<IResult> GetUnlinkForProvider<TDbContext>(string provider, HttpContext ctx, TDbContext db, IUserService users)
-        where TDbContext : DbContext
+    private static async Task<IResult> GetUnlinkForProvider(string provider, HttpContext ctx)
     {
         if (ctx.User.Identity?.IsAuthenticated != true)
         {
@@ -309,9 +332,9 @@ public static class RouteExtensions
 
         var userId = Guid.Parse(internalId);
 
-        var userExternalLogins = await db.Set<ExternalLogin>()
-            .Where(l => l.UserId == userId)
-            .ToListAsync();
+        var userAuthenticationService = ctx.RequestServices.GetRequiredService<IUserAuthenticationService>();
+
+        var userExternalLogins = await userAuthenticationService.GetExternalLoginsForUserIdAsync(userId, ctx.RequestAborted);
 
         if (!userExternalLogins.Any())
         {
@@ -329,17 +352,17 @@ public static class RouteExtensions
             return Results.Content($"<p>No linked account for provider '{provider}'</p><a href='/account/profile'>Back to profile</a>", "text/html");
         }
 
-        db.Set<ExternalLogin>().Remove(externalLogin);
-        await db.SaveChangesAsync();
+        await userAuthenticationService.RemoveExternalLogin(userId, externalLogin.Id, ctx.RequestAborted);
 
         var html = $@"
             <p>Unlinked {provider} successfully.</p>
             <a href='/account/profile'>Back to profile</a>
         ";
+
         return Results.Content(html, "text/html");
     }
 
-    private static async Task<IResult> GetAdminSecret(HttpContext context, IAuthorizationService authorizationService)
+    private static async Task<IResult> GetAdminSecret(HttpContext context, [FromServices] IAuthorizationService authorizationService)
     {
         /*
             services.AddAuthorization(options =>
@@ -360,5 +383,34 @@ public static class RouteExtensions
             return Results.Content("<h2>Welcome, Admin!</h2><p>You have access to this protected resource.</p>", "text/html");
         }
         return Results.Unauthorized();
+    }
+
+    private static async Task<IResult> CreateTenant(HttpContext context, CancellationToken _)
+    {
+        if (context.User.Identity?.IsAuthenticated != true)
+        {
+            return Results.Redirect("/account/login");
+        }
+
+        var internalId = context.User.FindFirstValue("InternalUserId");
+
+        if (internalId == null)
+        {
+            return Results.Problem("No InternalUserId claim found");
+        }
+
+        var userAuthenticationService = context.RequestServices.GetRequiredService<IUserAuthenticationService>();
+
+        var userId = Guid.Parse(internalId);
+        var user = await userAuthenticationService.GetUserByIdAsync(userId, context.RequestAborted);
+
+        if (user is null)
+        {
+            return Results.Redirect("/account/login");
+        }
+
+        await userAuthenticationService.CreateTenantForUser(userId, $"{user.DisplayName}'s Tenant", context.RequestAborted);
+
+        return Results.Redirect("/account/profile");
     }
 }

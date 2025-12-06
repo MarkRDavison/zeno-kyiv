@@ -1,8 +1,4 @@
-﻿using mark.davison.common.server.Models;
-using mark.davison.kyiv.shared.constants.Identifiers;
-using System.Linq.Expressions;
-
-namespace mark.davison.kyiv.api.persistence;
+﻿namespace mark.davison.kyiv.api.persistence;
 
 public sealed class KyivDataSeeder : IDataSeeder
 {
@@ -17,11 +13,24 @@ public sealed class KyivDataSeeder : IDataSeeder
     {
         await using var dbContext = _dbContextFactory.CreateDbContext();
 
+        if (!await ExistsAsync<Tenant>(dbContext, _ => _.Id == TenantIds.SystemTenantId, token))
+        {
+            await dbContext.AddAsync(new Tenant
+            {
+                Id = TenantIds.SystemTenantId,
+                Name = "System",
+                CreatedAt = DateTime.UtcNow,
+                LastModified = DateTime.UtcNow
+            }, token);
+            await dbContext.SaveChangesAsync(token);
+        }
+
         if (!await ExistsAsync<User>(dbContext, _ => _.Id == UserIds.SystemUserId, token))
         {
-            var sysUser = await dbContext.AddAsync(new User
+            await dbContext.AddAsync(new User
             {
                 Id = UserIds.SystemUserId,
+                TenantId = TenantIds.SystemTenantId,
                 Email = "system.kyiv@markdavison.kiwi",
                 DisplayName = "System Kyiv",
                 IsActive = true,

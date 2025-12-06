@@ -7,11 +7,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.0-rc.1.25451.107" />
+    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\mark.davison.common.persistence.abstractions\mark.davison.common.persistence.abstractions.csproj" />
+    <ProjectReference Include="..\mark.davison.common.server.abstractions\mark.davison.common.server.abstractions.csproj" />
   </ItemGroup>
 	
 </Project>
