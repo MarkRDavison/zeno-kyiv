@@ -14,6 +14,7 @@
   <ItemGroup>
     <ProjectReference Include="..\mark.davison.common.persistence.abstractions\mark.davison.common.persistence.abstractions.csproj" />
     <ProjectReference Include="..\mark.davison.common.server.abstractions\mark.davison.common.server.abstractions.csproj" />
+    <ProjectReference Include="..\mark.davison.common\mark.davison.common.csproj" />
   </ItemGroup>
 	
 </Project>

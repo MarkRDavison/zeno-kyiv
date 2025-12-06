@@ -1,5 +1,6 @@
 ﻿using mark.davison.common.authentication.server.Configuration;
 using mark.davison.common.authentication.server.Models;
+using mark.davison.common.Constants;
 using mark.davison.common.server.abstractions.Services;
 using Microsoft.AspNetCore.Authentication.OAuth;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
@@ -278,10 +279,10 @@ public static class DependencyInjectionExtensions
 
                     if (userById is null)
                     {
-                        var rolesToCreate = new List<string> { "User" };
+                        var rolesToCreate = new List<string> { RoleConstants.User };
                         if (string.Equals(user.Email, authenticationSettings.ADMIN_EMAIL, StringComparison.OrdinalIgnoreCase))
                         {
-                            rolesToCreate.Add("Admin");
+                            rolesToCreate.Add(RoleConstants.Admin);
                         }
 
                         await userAuthenticationService.CreateUserWithRolesAsync(user, rolesToCreate, http.RequestAborted);
@@ -425,10 +426,10 @@ public static class DependencyInjectionExtensions
 
                     if (userById is null)
                     {
-                        var rolesToCreate = new List<string> { "User" };
+                        var rolesToCreate = new List<string> { RoleConstants.User };
                         if (string.Equals(user.Email, authenticationSettings.ADMIN_EMAIL, StringComparison.OrdinalIgnoreCase))
                         {
-                            rolesToCreate.Add("Admin");
+                            rolesToCreate.Add(RoleConstants.Admin);
                         }
 
                         await userAuthenticationService.CreateUserWithRolesAsync(user, rolesToCreate, http.RequestAborted);

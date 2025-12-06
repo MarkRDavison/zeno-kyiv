@@ -1,4 +1,6 @@
-﻿namespace mark.davison.kyiv.api.persistence;
+﻿using mark.davison.common.Constants;
+
+namespace mark.davison.kyiv.api.persistence;
 
 public sealed class KyivDataSeeder : IDataSeeder
 {
@@ -46,7 +48,7 @@ public sealed class KyivDataSeeder : IDataSeeder
             await dbContext.AddAsync(new Role
             {
                 Id = Guid.Parse("02a740de-569f-4477-b5e7-d8622228db17"),
-                Name = "Admin",
+                Name = RoleConstants.Admin,
                 Description = "Administrator with full access",
                 Created = DateTime.UtcNow,
                 LastModified = DateTime.UtcNow,
@@ -59,7 +61,7 @@ public sealed class KyivDataSeeder : IDataSeeder
             await dbContext.AddAsync(new Role
             {
                 Id = Guid.Parse("207af3cb-4a21-4d85-a93d-e16a8690eff2"),
-                Name = "User",
+                Name = RoleConstants.User,
                 Description = "Standard user with limited access",
                 Created = DateTime.UtcNow,
                 LastModified = DateTime.UtcNow,

@@ -1,4 +1,6 @@
-﻿using mark.davison.common.server.abstractions.Services;
+﻿using mark.davison.common.authentication.server.Models;
+using mark.davison.common.Constants;
+using mark.davison.common.server.abstractions.Services;
 using Microsoft.AspNetCore.Mvc;
 using System.Text;
 
@@ -6,7 +8,303 @@ namespace mark.davison.common.authentication.server.Ignition;
 
 public static class RouteExtensions
 {
-    public static IEndpointRouteBuilder MapAuthenticationEndpoints(this IEndpointRouteBuilder endpoints)
+    public static IEndpointRouteBuilder MapBackendRemoteAuthenticationEndpoints<TDbContext>(this IEndpointRouteBuilder endpoints)
+        where TDbContext : DbContext
+    {
+        endpoints.MapGet(
+                    "/api/external-login",
+                    async (HttpContext context, [FromQuery] string provider, [FromQuery] string providerSub) =>
+                    {
+                        var dbContext = context.RequestServices.GetRequiredService<TDbContext>();
+
+                        var externalLogin = await dbContext.Set<ExternalLogin>()
+                            .AsNoTracking()
+                            .Where(_ => _.Provider == provider && _.ProviderSubject == providerSub)
+                            .FirstOrDefaultAsync(context.RequestAborted);
+
+                        if (externalLogin is null)
+                        {
+                            return Results.NotFound();
+                        }
+
+                        return Results.Ok(new ExternalLoginDto(externalLogin.Id, externalLogin.UserId, externalLogin.Provider, externalLogin.ProviderSubject));
+                    });
+
+        endpoints.MapGet(
+            "/api/user-roles",
+            async (HttpContext context, [FromQuery] Guid userId) =>
+            {
+                var dbContext = context.RequestServices.GetRequiredService<TDbContext>();
+
+                var user = await dbContext.Set<User>()
+                    .AsNoTracking()
+                    .Include(_ => _.UserRoles)
+                    .ThenInclude(_ => _.Role)
+                    .Where(_ => _.Id == userId)
+                    .FirstOrDefaultAsync(context.RequestAborted);
+
+                if (user is null)
+                {
+                    return Results.NotFound();
+                }
+
+                return Results.Ok(user.UserRoles
+                    .Select(_ => new UserRoleDto(_.Id, _.UserId, _.Role!.Name))
+                    .ToList());
+            });
+
+        endpoints.MapGet(
+            "/api/tenant",
+            async (HttpContext context, [FromQuery] Guid tenantId) =>
+            {
+                var dbContext = context.RequestServices.GetRequiredService<TDbContext>();
+
+                var tenant = await dbContext.Set<Tenant>()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(_ => _.Id == tenantId, context.RequestAborted);
+
+                if (tenant is null)
+                {
+                    return Results.NotFound();
+                }
+
+                return Results.Ok(new TenantDto(tenant.Id, tenant.Name));
+            });
+
+        endpoints.MapGet(
+            "/api/external-logins",
+            async (HttpContext context, [FromQuery] Guid userId) =>
+            {
+                var dbContext = context.RequestServices.GetRequiredService<TDbContext>();
+
+                var user = await dbContext.Set<User>()
+                    .AsNoTracking()
+                    .Include(_ => _.ExternalLogins)
+                    .Where(_ => _.Id == userId)
+                    .FirstOrDefaultAsync(context.RequestAborted);
+
+                if (user is null)
+                {
+                    return Results.NotFound();
+                }
+
+                return Results.Ok(user.ExternalLogins
+                    .Select(_ => new ExternalLoginDto(_.Id, _.UserId, _.Provider, _.ProviderSubject))
+                    .ToList());
+            });
+
+        endpoints.MapGet(
+            "/api/user",
+            async (HttpContext context, [FromQuery] Guid? userId, [FromQuery] string? email) =>
+            {
+                var dbContext = context.RequestServices.GetRequiredService<TDbContext>();
+
+                var userQuery = dbContext.Set<User>()
+                    .AsNoTracking();
+
+                if (userId is not null)
+                {
+                    userQuery = userQuery.Where(_ => _.Id == userId);
+                }
+                if (email is not null)
+                {
+                    userQuery = userQuery.Where(_ => _.Email == email);
+                }
+
+                var user = await userQuery
+                    .FirstOrDefaultAsync(context.RequestAborted);
+
+                if (user is null)
+                {
+                    return Results.NotFound();
+                }
+
+                return Results.Ok(new UserDto(user.Id, user.TenantId, user.Email, user.DisplayName ?? user.Email, user.IsActive, user.CreatedAt, user.LastModified));
+            });
+
+        endpoints.MapPost(
+            "/api/tenant/create",
+            async (HttpContext context) =>
+            {
+                var dbContext = context.RequestServices.GetRequiredService<TDbContext>();
+
+                var payload = await context.Request.ReadFromJsonAsync<CreateTenantDto>(context.RequestAborted);
+
+                if (payload is null)
+                {
+                    return Results.BadRequest();
+                }
+
+                var user = await dbContext.Set<User>()
+                    .Include(_ => _.UserRoles)
+                    .ThenInclude(_ => _.Role)
+                    .FirstOrDefaultAsync(_ => _.Id == payload.UserId, context.RequestAborted);
+
+                if (user is null)
+                {
+                    return Results.NotFound();
+                }
+
+                var tenant = new Tenant
+                {
+                    Id = Guid.NewGuid(),
+                    CreatedAt = DateTime.UtcNow,
+                    LastModified = DateTime.UtcNow,
+                    Name = payload.TenantName
+                };
+
+                user.TenantId = tenant.Id;
+
+                const string AdminRoleName = RoleConstants.Admin;
+                if (!user.UserRoles.Any(_ => _.Role?.Name == AdminRoleName))
+                {
+                    var adminRoleId = await dbContext
+                        .Set<Role>()
+                        .Where(_ => _.Name == AdminRoleName)
+                        .Select(_ => _.Id)
+                        .FirstOrDefaultAsync(context.RequestAborted);
+
+                    if (adminRoleId != Guid.Empty)
+                    {
+                        await dbContext.AddAsync(
+                            new UserRole
+                            {
+                                Id = Guid.NewGuid(),
+                                RoleId = adminRoleId,
+                                UserId = user.Id,
+                                LastModified = DateTime.UtcNow,
+                                Created = DateTime.UtcNow
+                            },
+                            context.RequestAborted);
+                    }
+                }
+
+                await dbContext.AddAsync(tenant, context.RequestAborted);
+                dbContext.Update(user);
+                await dbContext.SaveChangesAsync(context.RequestAborted);
+
+                return Results.Ok();
+            });
+
+        endpoints.MapPost(
+            "/api/user/create",
+            async (HttpContext context) =>
+            {
+                var payload = await context.Request.ReadFromJsonAsync<CreateUserDto>(context.RequestAborted);
+
+                if (payload is null)
+                {
+                    return Results.BadRequest();
+                }
+
+                var dbContext = context.RequestServices.GetRequiredService<TDbContext>();
+
+                var user = new User
+                {
+                    Id = payload.User.Id,
+                    Email = payload.User.Email,
+                    DisplayName = payload.User.DisplayName,
+                    TenantId = payload.User.TenantId,
+                    CreatedAt = DateTime.UtcNow,
+                    LastModified = DateTime.UtcNow
+                };
+
+                await dbContext.AddAsync(user, context.RequestAborted);
+
+                var roles = await dbContext
+                    .Set<Role>()
+                    .Where(_ => payload.Roles.Contains(_.Name))
+                    .ToListAsync(context.RequestAborted);
+                foreach (var roleName in payload.Roles)
+                {
+                    var userRole = new UserRole
+                    {
+                        Id = Guid.NewGuid(),
+                        UserId = user.Id,
+                        RoleId = roles.Single(_ => _.Name == roleName).Id,
+                        Created = DateTime.UtcNow,
+                        LastModified = DateTime.UtcNow
+                    };
+                    await dbContext.AddAsync(userRole, context.RequestAborted);
+                }
+
+                await dbContext.SaveChangesAsync(context.RequestAborted);
+
+                return Results.Ok();
+            });
+
+        endpoints.MapPost(
+            "/api/user/{userId}/external-logins",
+            async (HttpContext context, Guid userId) =>
+            {
+                var payload = await context.Request.ReadFromJsonAsync<CreateExternalLoginDto>(context.RequestAborted);
+
+                if (payload is null)
+                {
+                    return Results.BadRequest();
+                }
+
+                var dbContext = context.RequestServices.GetRequiredService<TDbContext>();
+
+                var user = await dbContext
+                    .Set<User>()
+                    .Include(_ => _.ExternalLogins)
+                    .FirstOrDefaultAsync(_ => _.Id == userId, context.RequestAborted);
+
+                if (user is null)
+                {
+                    return Results.NotFound();
+                }
+
+                var exernalLogin = new ExternalLogin
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    Created = DateTime.UtcNow,
+                    LastModified = DateTime.UtcNow,
+                    Provider = payload.Provider,
+                    ProviderSubject = payload.ProviderSub
+                };
+
+                await dbContext.AddAsync(exernalLogin, context.RequestAborted);
+                await dbContext.SaveChangesAsync(context.RequestAborted);
+
+                return Results.Ok();
+            });
+
+        endpoints.MapDelete(
+            "/api/user/{userId}/external-logins/{externalLoginId}",
+            async (HttpContext context, Guid userId, Guid externalLoginId) =>
+            {
+                var dbContext = context.RequestServices.GetRequiredService<TDbContext>();
+
+                var user = await dbContext
+                    .Set<User>()
+                    .Include(_ => _.ExternalLogins)
+                    .FirstOrDefaultAsync(_ => _.Id == userId, context.RequestAborted);
+
+                if (user is null)
+                {
+                    return Results.NotFound();
+                }
+
+                var externalLogin = user.ExternalLogins.FirstOrDefault(_ => _.Id == externalLoginId);
+
+                if (externalLogin is null)
+                {
+                    return Results.NotFound();
+                }
+
+                user.ExternalLogins.Remove(externalLogin);
+                dbContext.Set<ExternalLogin>().Remove(externalLogin);
+                await dbContext.SaveChangesAsync(context.RequestAborted);
+
+                return Results.Ok();
+            });
+
+        return endpoints;
+    }
+    public static IEndpointRouteBuilder MapInteractiveAuthenticationEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet("/", GetRoot);
         endpoints.MapGet("/account/login", GetLogin);
@@ -367,7 +665,7 @@ public static class RouteExtensions
         /*
             services.AddAuthorization(options =>
             {
-                options.AddPolicy("RequireAdmin", policy => policy.RequireRole("Admin"));
+                options.AddPolicy("RequireAdmin", policy => policy.RequireRole(RoleConstants.Admin));
             });
 
             // ...
@@ -378,7 +676,7 @@ public static class RouteExtensions
          */
 
         // TODO: Admin -> Constant
-        if (await authorizationService.AuthorizeAsync(context.User, null, new RolesAuthorizationRequirement(["Admin"])) is { Succeeded: true })
+        if (await authorizationService.AuthorizeAsync(context.User, null, new RolesAuthorizationRequirement([RoleConstants.Admin])) is { Succeeded: true })
         {
             return Results.Content("<h2>Welcome, Admin!</h2><p>You have access to this protected resource.</p>", "text/html");
         }

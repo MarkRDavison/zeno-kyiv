@@ -1,13 +1,4 @@
-﻿using mark.davison.common.abstractions.Services;
-using mark.davison.common.authentication.server.Ignition;
-using mark.davison.common.authentication.server.Models;
-using mark.davison.common.authentication.server.Services;
-using mark.davison.common.server.Ignition;
-using mark.davison.common.Services;
-using mark.davison.kyiv.bff.Configuration;
-using mark.davison.kyiv.shared.constants.Identifiers;
-
-namespace mark.davison.kyiv.bff;
+﻿namespace mark.davison.kyiv.bff;
 
 public sealed class Startup
 {
@@ -55,7 +46,7 @@ public sealed class Startup
             .UseAuthorization()
             .UseEndpoints(endpoints =>
             {
-                endpoints.MapAuthenticationEndpoints();
+                endpoints.MapInteractiveAuthenticationEndpoints();
             });
     }
 }
