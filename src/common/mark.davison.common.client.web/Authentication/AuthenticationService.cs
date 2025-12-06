@@ -82,6 +82,7 @@ public class AuthenticationService : IAuthenticationService
         var request = new HttpRequestMessage
         {
             Method = HttpMethod.Get,
+            // TODO: Remove hard coded address
             RequestUri = new Uri("https://localhost:40000/account/user")
         };
 
@@ -89,16 +90,13 @@ public class AuthenticationService : IAuthenticationService
 
         if (response.IsSuccessStatusCode)
         {
-            // WOOP!
-            var context = await response.Content.ReadAsStringAsync();
-
-            if (!string.IsNullOrEmpty(context))
+            if (await response.Content.ReadAsStringAsync() is { } context &&
+                !string.IsNullOrEmpty(context))
             {
                 var (authorized, principal) = FromJson(context);
 
                 if (authorized)
                 {
-                    Console.WriteLine("USER AUTHENTICATED");
                     AuthenticateUser(principal);
                 }
             }

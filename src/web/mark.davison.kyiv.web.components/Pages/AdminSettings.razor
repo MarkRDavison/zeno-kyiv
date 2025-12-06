@@ -1,4 +1,5 @@
 ﻿@using System.Security.Claims
+@using mark.davison.kyiv.shared.models.dto.Scenarios.Queries.AdminSettings
 @attribute [Authorize(Roles = "Admin")]
 @attribute [Route(Routes.AdminSettings)]
 
@@ -18,5 +19,6 @@
 	protected override async Task OnInitializedAsync()
 	{
 		_authState = await _authStateProvider.GetAuthenticationStateAsync();
+		var response = await _clientRepository.Get<AdminSettingsQueryRequest, AdminSettingsQueryResponse>(CancellationToken.None);
 	}
 }

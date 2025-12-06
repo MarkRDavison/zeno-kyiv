@@ -4,6 +4,7 @@
 public static class AuthConstants
 {
     public const string InternalUserId = "InternalUserId";
+    public const string TenantId = "TenantId";
     public const string LoggedInProvider = "LoggedInProvider";
     public const string ExpiresAt = "expires_at";
     public const string DynamicScheme = "Dynamic";

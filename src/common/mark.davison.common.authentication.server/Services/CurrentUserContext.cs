@@ -1,28 +1,59 @@
 ﻿namespace mark.davison.common.authentication.server.Services;
 
-public sealed class CurrentUserContext : ICurrentUserContext
+public sealed class CurrentUserContext<TDbContext> : ICurrentUserContext
+    where TDbContext : DbContext
 {
-    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly TDbContext _dbContext;
+    private readonly HashSet<string> _roles = [];
 
-    public CurrentUserContext(IHttpContextAccessor httpContextAccessor)
+    public CurrentUserContext(TDbContext dbContext)
     {
-        _httpContextAccessor = httpContextAccessor;
+        _dbContext = dbContext;
     }
 
-    public bool IsAuthenticated => _httpContextAccessor.HttpContext?.User.Identity?.IsAuthenticated ?? false;
-    public Guid UserId => Guid.Parse(_httpContextAccessor.HttpContext?.User.FindFirstValue(AuthConstants.InternalUserId) ?? string.Empty);
-    public Guid TenantId => throw new NotImplementedException();
+    public bool IsAuthenticated { get; private set; }
+    public Guid UserId { get; private set; }
+    public Guid TenantId { get; private set; }
     public bool HasRole(string role)
     {
-        var roles = _httpContextAccessor.HttpContext?.User.FindAll(ClaimTypes.Role)
-            .Select(r => r.Value)
-            .ToList();
+        return _roles.Contains(role);
+    }
 
-        if (roles?.Contains(role) ?? false)
+
+    public async Task<ClaimsPrincipal> PopulateFromPrincipal(ClaimsPrincipal principal, string provider)
+    {
+        _roles.Clear();
+        var email = principal.FindFirstValue(ClaimTypes.Email);
+        var sub = principal.FindFirstValue("sub") ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        // TODO: Cache
+        Console.WriteLine("TODO: Cache this...");
+        var user = await _dbContext
+            .Set<User>()
+            .AsNoTracking()
+            .Include(_ => _.UserRoles)
+            .ThenInclude(_ => _.Role)
+            .Where(_ => _.Email == email && _.ExternalLogins
+                .Any(el => el.Provider == provider && (sub == null || el.ProviderSubject == sub)))
+            .FirstOrDefaultAsync(CancellationToken.None);
+
+        var identity = new ClaimsIdentity(principal.Identity);
+        var newPrincipal = new ClaimsPrincipal(identity);
+
+        if (user is not null && principal.Identity is not null)
         {
-            return true;
+            IsAuthenticated = principal.Identity.IsAuthenticated;
+            UserId = user.Id;
+            identity.AddClaim(new Claim(AuthConstants.InternalUserId, UserId.ToString()));
+            TenantId = user.TenantId;
+            identity.AddClaim(new Claim(AuthConstants.TenantId, TenantId.ToString()));
+            foreach (var role in user.UserRoles)
+            {
+                _roles.Add(role.Role!.Name);
+                identity.AddClaim(new Claim(ClaimTypes.Role, role.Role!.Name));
+            }
         }
 
-        return false;
+        return newPrincipal;
     }
 }

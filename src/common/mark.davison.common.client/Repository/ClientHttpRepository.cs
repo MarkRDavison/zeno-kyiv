@@ -27,7 +27,7 @@ public class ClientHttpRepository : IClientHttpRepository
         _logger = logger;
     }
 
-    public async Task<TResponse> Get<TResponse, TRequest>(TRequest request, CancellationToken cancellationToken)
+    public async Task<TResponse> Get<TRequest, TResponse>(TRequest request, CancellationToken cancellationToken)
         where TRequest : class, IQuery<TRequest, TResponse>
         where TResponse : Response, new()
     {
@@ -58,7 +58,7 @@ public class ClientHttpRepository : IClientHttpRepository
                 {
                     _suppressRetry = true;
                     await args.RetryWaitTask;
-                    return await Get<TResponse, TRequest>(request, cancellationToken);
+                    return await Get<TRequest, TResponse>(request, cancellationToken);
                 }
             }
         }
@@ -78,14 +78,14 @@ public class ClientHttpRepository : IClientHttpRepository
         }
     }
 
-    public Task<TResponse> Get<TResponse, TRequest>(CancellationToken cancellationToken)
+    public Task<TResponse> Get<TRequest, TResponse>(CancellationToken cancellationToken)
         where TRequest : class, IQuery<TRequest, TResponse>, new()
         where TResponse : Response, new()
     {
-        return Get<TResponse, TRequest>(new TRequest(), cancellationToken);
+        return Get<TRequest, TResponse>(new TRequest(), cancellationToken);
     }
 
-    public async Task<TResponse> Post<TResponse, TRequest>(TRequest request, CancellationToken cancellationToken)
+    public async Task<TResponse> Post<TRequest, TResponse>(TRequest request, CancellationToken cancellationToken)
         where TRequest : class, ICommand<TRequest, TResponse>
         where TResponse : Response, new()
     {
@@ -121,7 +121,7 @@ public class ClientHttpRepository : IClientHttpRepository
                 {
                     _suppressRetry = true;
                     await args.RetryWaitTask;
-                    return await Post<TResponse, TRequest>(request, cancellationToken);
+                    return await Post<TRequest, TResponse>(request, cancellationToken);
                 }
             }
         }
@@ -141,11 +141,11 @@ public class ClientHttpRepository : IClientHttpRepository
         }
     }
 
-    public Task<TResponse> Post<TResponse, TRequest>(CancellationToken cancellationToken)
+    public Task<TResponse> Post<TRequest, TResponse>(CancellationToken cancellationToken)
         where TRequest : class, ICommand<TRequest, TResponse>, new()
         where TResponse : Response, new()
     {
-        return Post<TResponse, TRequest>(new TRequest(), cancellationToken);
+        return Post<TRequest, TResponse>(new TRequest(), cancellationToken);
     }
 
     public event EventHandler<InvalidHttpResponseEventArgs> OnInvalidHttpResponse = default!;

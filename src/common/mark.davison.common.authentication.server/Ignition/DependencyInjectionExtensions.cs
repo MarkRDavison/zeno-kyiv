@@ -14,11 +14,12 @@ namespace mark.davison.common.authentication.server.Ignition;
 
 public static class DependencyInjectionExtensions
 {
-    public static IServiceCollection AddJwtAuthentication(this IServiceCollection services, AuthenticationSettings authenticationSettings)
+    public static IServiceCollection AddJwtAuthentication<TDbContext>(this IServiceCollection services, AuthenticationSettings authenticationSettings)
+        where TDbContext : DbContext
     {
         var authBuilder = services
             .AddSingleton<IAuthenticationProvidersService, AuthenticationProvidersService>()
-            .AddScoped<ICurrentUserContext, CurrentUserContext>()
+            .AddScoped<ICurrentUserContext, CurrentUserContext<TDbContext>>()
             .AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = AuthConstants.DynamicScheme;
@@ -83,6 +84,24 @@ public static class DependencyInjectionExtensions
                 {
                     options.Authority = provider.Authority;
                     options.Audience = provider.ClientId;
+                    options.Events = new()
+                    {
+                        OnTokenValidated = async ctx =>
+                        {
+                            if (ctx.Principal is not null)
+                            {
+                                ctx.Principal = await ctx.HttpContext.RequestServices
+                                    .GetRequiredService<ICurrentUserContext>()
+                                    .PopulateFromPrincipal(ctx.Principal, provider.Name);
+                            }
+
+                        },
+                        OnAuthenticationFailed = ctx =>
+                        {
+                            Console.WriteLine($"Auth failed: {ctx.Exception}");
+                            return Task.CompletedTask;
+                        }
+                    };
                 });
         }
 

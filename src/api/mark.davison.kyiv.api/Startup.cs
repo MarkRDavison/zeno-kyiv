@@ -30,7 +30,7 @@ public sealed class Startup
             .AddSingleton<IDateService>(_ => new DateService(DateService.DateMode.Utc))
             .AddSingleton<IDataSeeder, KyivDataSeeder>()
             .AddAuthorization()
-            .AddJwtAuthentication(AppSettings.AUTHENTICATION)
+            .AddJwtAuthentication<KyivDbContext>(AppSettings.AUTHENTICATION)
             .AddHttpClient()
             .AddHttpContextAccessor()
             .AddDbContextFactory<KyivDbContext>(_ =>

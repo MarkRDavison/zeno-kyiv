@@ -45,7 +45,7 @@
 
 	protected override async Task OnInitializedAsync()
 	{
-		var response = await _clientRepository.Get<StartupQueryResponse, StartupQueryRequest>(new StartupQueryRequest(), CancellationToken.None);
+		var response = await _clientRepository.Get<StartupQueryRequest, StartupQueryResponse>(new StartupQueryRequest(), CancellationToken.None);
 
 		if (response.SuccessWithValue)
 		{
