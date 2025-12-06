@@ -2,5 +2,6 @@
 
 public interface IRootAppSettings : IAppSettings
 {
+    string SECTION { get; }
     bool PRODUCTION_MODE { get; set; }
 }

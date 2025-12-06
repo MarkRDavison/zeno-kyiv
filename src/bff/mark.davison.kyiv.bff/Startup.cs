@@ -13,7 +13,7 @@ public sealed class Startup
 {
     public IConfiguration Configuration { get; }
 
-    public AppSettings AppSettings { get; } = new();
+    public AppSettings AppSettings { get; set; } = new();
 
     public Startup(IConfiguration configuration)
     {
@@ -21,9 +21,7 @@ public sealed class Startup
     }
     public void ConfigureServices(IServiceCollection services)
     {
-        IConfigurationSection section = Configuration.GetSection(AppSettings.SECTION);
-        services.Configure<AppSettings>(section);
-        section.Bind(AppSettings);
+        AppSettings = services.BindAppSettings(Configuration);
 
         services
             .AddCors()
