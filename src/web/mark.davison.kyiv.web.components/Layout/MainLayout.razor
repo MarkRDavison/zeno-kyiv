@@ -1,0 +1,78 @@
+﻿@inherits LayoutComponentBase
+
+@inject IAuthenticationService _authService;
+
+@using Microsoft.AspNetCore.Components.Authorization
+@using MudBlazor
+@using mark.davison.common.client.web.abstractions.Authentication
+@using mark.davison.kyiv.shared.constants.Identifiers
+
+<MudThemeProvider @ref="@_mudThemeProvider" @bind-IsDarkMode="@_isDarkMode" />
+<MudDialogProvider />
+<MudSnackbarProvider />
+<MudPopoverProvider  />
+
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <MudIconButton Icon="@Icons.Material.Outlined.QuestionMark" Color="Color.Inherit" />
+        <MudText Typo="Typo.h4" Class="app-title">Kyiv</MudText>
+        <MudSpacer />
+        <AuthorizeView>
+            <Authorized>
+                @if (context.User.IsInRole("Admin"))
+                {
+                    <MudTooltip Text="Admin User">
+                        <MudIcon data-testid="@DataTestIds.AdminIcon" Class="mr-2" Icon="@Icons.Material.Filled.Shield" />
+                    </MudTooltip>
+                }
+                <span data-testid="@DataTestIds.Username">@context.User.Identity?.Name</span>
+                <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Size="Size.Large">
+                    <ActivatorContent>
+                        <MudIconButton data-testid="@DataTestIds.ManageIcon" Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit" Edge="Edge.End" />
+                    </ActivatorContent>
+                    <ChildContent>
+                        <MudMenuItem Href="@Routes.UserSettings">Settings</MudMenuItem>
+                        @if (context.User.IsInRole("Admin"))
+                        {
+                            <MudDivider />
+                            <MudMenuItem Href="@Routes.AdminSettings">Admin Settings</MudMenuItem>
+                        }
+                        <MudDivider />
+                        <MudMenuItem Href="https://localhost:40000/account/logout">Logout</MudMenuItem>
+                    </ChildContent>
+                </MudMenu>
+            </Authorized>
+        </AuthorizeView>
+    </MudAppBar>
+    <MudMainContent>
+        <MudContainer>
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _isDarkMode;
+    private MudThemeProvider? _mudThemeProvider;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await _authService.EvaluateAuthentication();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _mudThemeProvider != null)
+        {
+            _isDarkMode = await _mudThemeProvider.GetSystemDarkModeAsync();
+            await _mudThemeProvider.WatchSystemDarkModeAsync(OnSystemPreferenceChanged);
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task OnSystemPreferenceChanged(bool newValue)
+    {
+        _isDarkMode = newValue;
+        await InvokeAsync(StateHasChanged);
+    }
+}

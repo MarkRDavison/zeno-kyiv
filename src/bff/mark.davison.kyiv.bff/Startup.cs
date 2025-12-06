@@ -15,7 +15,17 @@ public sealed class Startup
         AppSettings = services.BindAppSettings(Configuration);
 
         services
-            .AddCors()
+            .AddCors(o =>
+            {
+                o.AddDefaultPolicy(builder =>
+                {
+                    builder
+                        .WithOrigins("https://localhost:8080")
+                        .AllowAnyMethod()
+                        .AllowAnyHeader()
+                        .AllowCredentials();
+                });
+            })
             .AddLogging()
             .AddSingleton<IDateService>(_ => new DateService(DateService.DateMode.Utc))
             .AddScoped<IUserAuthenticationService, RemoteUserAuthenticationService>()
@@ -33,20 +43,17 @@ public sealed class Startup
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
     {
-        app.UseCors(b =>
-            b
-                .SetIsOriginAllowed(_ => true)
-                .AllowAnyMethod()
-                .AllowCredentials()
-                .AllowAnyHeader());
+
         app
             .UseHttpsRedirection()
             .UseRouting()
+            .UseCors()
             .UseAuthentication()
             .UseAuthorization()
             .UseEndpoints(endpoints =>
             {
-                endpoints.MapInteractiveAuthenticationEndpoints();
+                endpoints
+                    .MapInteractiveAuthenticationEndpoints(AppSettings.WEB_ORIGIN);
             });
     }
 }

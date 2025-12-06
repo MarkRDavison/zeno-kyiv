@@ -1,0 +1,17 @@
+﻿@attribute [Route(Routes.Root)]
+
+<h1>Root</h1>
+
+<AuthorizeView>
+	<Authorized>
+		<span>You are already logged in, congrats</span>
+		@if (context.User.IsInRole("Admin"))
+		{
+			<br />
+			<span>And as an admin too, fancy!</span>
+		}
+	</Authorized>
+	<NotAuthorized>
+		<a href="@Routes.Login">Login</a>
+	</NotAuthorized>
+</AuthorizeView>

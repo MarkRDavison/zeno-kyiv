@@ -1,0 +1,10 @@
+﻿global using mark.davison.common.client.web.abstractions.Authentication;
+global using mark.davison.common.client.web.abstractions.Navigation;
+global using mark.davison.common.client.web.Authentication;
+global using mark.davison.common.client.web.Navigation;
+global using Microsoft.AspNetCore.Components;
+global using Microsoft.AspNetCore.Components.Authorization;
+global using Microsoft.AspNetCore.Components.WebAssembly.Http;
+global using Microsoft.Extensions.DependencyInjection;
+global using MudBlazor.Services;
+global using System.Security.Claims;

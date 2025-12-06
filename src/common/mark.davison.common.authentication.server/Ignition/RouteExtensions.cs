@@ -304,14 +304,15 @@ public static class RouteExtensions
 
         return endpoints;
     }
-    public static IEndpointRouteBuilder MapInteractiveAuthenticationEndpoints(this IEndpointRouteBuilder endpoints)
+
+    public static IEndpointRouteBuilder MapInteractiveAuthenticationEndpoints(this IEndpointRouteBuilder endpoints, string webOrigin)
     {
         endpoints.MapGet("/", GetRoot);
         endpoints.MapGet("/account/login", GetLogin);
         endpoints.MapGet("/account/login/{provider}", GetLoginForProvider);
-        endpoints.MapGet("/account/postlogin", GetPostLogin);
+        endpoints.MapGet("/account/postlogin", GetPostLogin(webOrigin));
         endpoints.MapGet("/account/profile", GetAccountProfile);
-        endpoints.MapGet("/account/logout", GetLogout);
+        endpoints.MapGet("/account/logout", GetLogout(webOrigin));
         endpoints.MapGet("/account/links", GetLinks);
         endpoints.MapGet("/account/link/{provider}", GetLinkForProvider);
         endpoints.MapGet("/account/link-callback", GetLinkCallback2);
@@ -320,6 +321,7 @@ public static class RouteExtensions
         endpoints.MapGet("/account/unlink/{provider}", GetUnlinkForProvider);
         endpoints.MapGet("/admin/secret", GetAdminSecret);
         endpoints.MapGet("/account/tenant/create", CreateTenant);
+        endpoints.MapGet("/account/user", GetUser);
 
         return endpoints;
     }
@@ -364,55 +366,19 @@ public static class RouteExtensions
         throw new InvalidOperationException("Invalid authentication provider");
     }
 
-    private static async Task<IResult> GetPostLogin(HttpContext context, CancellationToken _)
+    private static Func<HttpContext, CancellationToken, Task<IResult>> GetPostLogin(string webOrigin)
     {
-        var userAuthenticationService = context.RequestServices.GetRequiredService<IUserAuthenticationService>();
-        var authResult = await context.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-        var isAuth = context.User.Identity?.IsAuthenticated == true;
-
-        string tokenInfo = "(no access token)";
-        if (authResult.Succeeded && authResult.Properties != null)
+        return async (HttpContext context, CancellationToken _) =>
         {
-            if (authResult.Properties.GetTokenValue("id_token") is { } accessToken &&
-                context.User.FindFirstValue("LoggedInProvider") is { } provider)
+            var authResult = await context.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+
+            if (authResult.Succeeded)
             {
-                userAuthenticationService.SetToken(accessToken);
+                return Results.Redirect(webOrigin);
             }
 
-            var expiresAtValue = authResult.Properties.GetTokenValue("expires_at");
-            if (DateTime.TryParse(expiresAtValue, out var expiresAtLocal))
-            {
-                var expiresAtUtc = expiresAtLocal.ToUniversalTime();
-                var remaining = expiresAtUtc - DateTime.UtcNow;
-                tokenInfo = remaining > TimeSpan.Zero
-                    ? $"{remaining.TotalSeconds} seconds remaining"
-                    : "Expired";
-            }
-        }
-
-        List<string> roles = [];
-        var internalId = context.User.FindFirstValue("InternalUserId");
-        if (internalId != null)
-        {
-            var userId = Guid.Parse(internalId);
-            roles = [.. await userAuthenticationService.GetRolesForUserIdAsync(userId, context.RequestAborted)];
-        }
-
-        var html = $@"
-            <h3>Post-login Debug</h3>
-            <p>Authenticated: {isAuth}</p>
-            <p>AuthenticationType: {context.User.Identity?.AuthenticationType ?? "(null)"}</p>
-            <p>Access Token Remaining: {tokenInfo}</p>
-            <h4>Claims</h4>
-            <ul>{string.Join("", context.User.Claims.Select(c => $"<li>{c.Type}: {c.Value}</li>"))}</ul>
-            <h4>Roles</h4>
-            <ul>{string.Join("", roles.Select(r => $"<li>{r}</li>"))}</ul>
-            <h4>Cookies</h4>
-            <ul>{string.Join("", context.Request.Cookies.Select(c => $"<li>{c.Key}: {c.Value}</li>"))}</ul>
-            <a href='/account/profile'>Profile</a>
-        ";
-
-        return Results.Content(html, "text/html");
+            return Results.Redirect(webOrigin + $"?error={authResult.Failure?.Message ?? "Something went wrong"}");
+        };
     }
 
     private static async Task<IResult> GetAccountProfile(HttpContext context, CancellationToken _)
@@ -422,7 +388,7 @@ public static class RouteExtensions
             return Results.Redirect("/account/login");
         }
 
-        var internalId = context.User.FindFirstValue("InternalUserId");
+        var internalId = context.User.FindFirstValue(AuthConstants.InternalUserId);
 
         if (internalId == null)
         {
@@ -440,7 +406,7 @@ public static class RouteExtensions
         }
 
         // Find which provider was used for the current login
-        var currentProvider = context.User.FindFirst("LoggedInProvider")?.Value ?? "(unknown)";
+        var currentProvider = context.User.FindFirst(AuthConstants.LoggedInProvider)?.Value ?? "(unknown)";
 
         var externalLogins = await userAuthenticationService.GetExternalLoginsForUserIdAsync(userId, context.RequestAborted);
 
@@ -481,16 +447,19 @@ public static class RouteExtensions
         return Results.Content(html, "text/html");
     }
 
-    private static async Task<IResult> GetLogout(HttpContext context, CancellationToken _)
+    private static Func<HttpContext, CancellationToken, Task<IResult>> GetLogout(string webOrigin)
     {
-        await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        return async (HttpContext context, CancellationToken _) =>
+        {
+            await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
 
-        return Results.Redirect("/");
+            return Results.Redirect(webOrigin);
+        };
     }
 
     private static async Task<IResult> GetLinks(HttpContext context, [FromServices] IUserAuthenticationService userAuthenticationService)
     {
-        var userIdClaim = context.User.FindFirst("InternalUserId");
+        var userIdClaim = context.User.FindFirst(AuthConstants.InternalUserId);
         if (userIdClaim is null)
         {
             return Results.Unauthorized();
@@ -532,7 +501,7 @@ public static class RouteExtensions
         {
             RedirectUri = "/account/link-callback",
         };
-        props.Items["LinkingUserId"] = context.User.FindFirstValue("InternalUserId")!;
+        props.Items["LinkingUserId"] = context.User.FindFirstValue(AuthConstants.InternalUserId)!;
         props.Items["LinkingProvider"] = provider;
 
         return Results.Challenge(props, [provider]);
@@ -622,7 +591,7 @@ public static class RouteExtensions
             return Results.Redirect("/account/login");
         }
 
-        var internalId = ctx.User.FindFirstValue("InternalUserId");
+        var internalId = ctx.User.FindFirstValue(AuthConstants.InternalUserId);
         if (internalId == null)
         {
             return Results.Problem("No InternalUserId claim found");
@@ -683,6 +652,30 @@ public static class RouteExtensions
         return Results.Unauthorized();
     }
 
+    private static async Task<IResult> GetUser(HttpContext context, CancellationToken _)
+    {
+        if (context.User?.Identity?.IsAuthenticated ?? false)
+        {
+            var roles = context.User.FindAll(ClaimTypes.Role)
+                .Select(r => r.Value)
+                .ToList();
+
+            var user = new
+            {
+                Name = context.User.Identity.Name,
+                IsAuthenticated = context.User.Identity.IsAuthenticated,
+                Email = context.User.FindFirstValue(ClaimTypes.Email),
+                UserId = context.User.FindFirstValue(AuthConstants.InternalUserId),
+                LoggedInProvider = context.User.FindFirstValue(AuthConstants.LoggedInProvider),
+                Claims = roles
+            };
+
+            return Results.Ok(user);
+        }
+
+        return Results.Unauthorized();
+    }
+
     private static async Task<IResult> CreateTenant(HttpContext context, CancellationToken _)
     {
         if (context.User.Identity?.IsAuthenticated != true)
@@ -690,7 +683,7 @@ public static class RouteExtensions
             return Results.Redirect("/account/login");
         }
 
-        var internalId = context.User.FindFirstValue("InternalUserId");
+        var internalId = context.User.FindFirstValue(AuthConstants.InternalUserId);
 
         if (internalId == null)
         {

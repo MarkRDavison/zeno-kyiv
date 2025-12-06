@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\mark.davison.common.client.abstractions\mark.davison.common.client.abstractions.csproj" />
+    <ProjectReference Include="..\mark.davison.common\mark.davison.common.csproj" />
+  </ItemGroup>
+
+</Project>

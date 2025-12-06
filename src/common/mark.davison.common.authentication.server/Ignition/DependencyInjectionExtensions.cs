@@ -220,15 +220,17 @@ public static class DependencyInjectionExtensions
                 var http = context.HttpContext;
                 var userAuthenticationService = http.RequestServices.GetRequiredService<IUserAuthenticationService>();
                 var provider = context.Scheme.Name;
-                var identity = (ClaimsIdentity)context.Principal.Identity!;
 
-                // await context.Backchannel.GetStringAsync(context.Options.UserInformationEndpoint)
+                if (context.Principal?.Identity is not ClaimsIdentity identity)
+                {
+                    throw new InvalidOperationException("Invalid principal identity");
+                }
+
                 var userJson = JsonDocument.Parse(await context.Backchannel.GetStringAsync(context.Options.UserInformationEndpoint));
                 var providerSub = userJson.RootElement.GetProperty("id").GetString()!;
                 var email = userJson.RootElement.GetProperty("email").GetString()!;
                 var name = userJson.RootElement.GetProperty("name").GetString() ?? email;
 
-                //  Detect linking mode
                 var isLinking = context.Properties?.Items.TryGetValue("linking", out var linkFlag) == true && linkFlag == "true";
                 var linkingUserId = context.Properties?.Items.TryGetValue("userId", out var uid) == true ? uid : null;
 
@@ -294,8 +296,8 @@ public static class DependencyInjectionExtensions
                     await userAuthenticationService.AddExternalLoginAsync(user.Id, provider, providerSub, http.RequestAborted);
                 }
 
-                identity.AddClaim(new Claim("InternalUserId", userId.ToString()));
-                identity.AddClaim(new Claim("LoggedInProvider", provider));
+                identity.AddClaim(new Claim(AuthConstants.InternalUserId, userId.ToString()));
+                identity.AddClaim(new Claim(AuthConstants.LoggedInProvider, provider));
 
                 var roles = await userAuthenticationService.GetRolesForUserIdAsync(userId, http.RequestAborted);
                 foreach (var r in roles)
@@ -337,6 +339,10 @@ public static class DependencyInjectionExtensions
                 if (context.Properties is null)
                 {
                     throw new InvalidOperationException("OnTokenValidated - invalid properties");
+                }
+                if (context.Principal?.Identity is not ClaimsIdentity identity)
+                {
+                    throw new InvalidOperationException("Invalid principal identity");
                 }
 
                 AuthTokenHelpers.NormalizeTokenTimes(context.Properties);
@@ -439,19 +445,19 @@ public static class DependencyInjectionExtensions
                     await userAuthenticationService.AddExternalLoginAsync(user.Id, provider, providerSub, http.RequestAborted);
                 }
 
-                var identity = (ClaimsIdentity)principal.Identity!;
-                identity.AddClaim(new Claim("InternalUserId", userId.ToString()));
-                identity.AddClaim(new Claim("LoggedInProvider", provider));
+                identity.AddClaim(new Claim(AuthConstants.InternalUserId, userId.ToString()));
+                identity.AddClaim(new Claim(AuthConstants.LoggedInProvider, provider));
 
                 if (context.Properties is { } properties)
                 {
                     properties.Items["provider"] = providerName;
-                    properties.Items["client_id"] = context.Options.ClientId;
-                    properties.Items["client_secret"] = context.Options.ClientSecret;
-                    properties.Items["token_endpoint"] = tokenEndpoint;
+                    properties.Items[AuthConstants.ClientId] = context.Options.ClientId;
+                    properties.Items[AuthConstants.ClientSecret] = context.Options.ClientSecret;
+                    properties.Items[AuthConstants.TokenEndpoint] = tokenEndpoint;
                 }
 
                 var roles = await userAuthenticationService.GetRolesForUserIdAsync(userId, http.RequestAborted);
+
                 foreach (var r in roles)
                 {
                     identity.AddClaim(new Claim(ClaimTypes.Role, r));

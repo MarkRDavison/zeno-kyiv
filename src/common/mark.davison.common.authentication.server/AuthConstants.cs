@@ -3,6 +3,8 @@
 
 public static class AuthConstants
 {
+    public const string InternalUserId = "InternalUserId";
+    public const string LoggedInProvider = "LoggedInProvider";
     public const string ExpiresAt = "expires_at";
     public const string DynamicScheme = "Dynamic";
     public const string ExpiresIn = "expires_in";

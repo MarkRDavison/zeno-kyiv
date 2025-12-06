@@ -2,6 +2,10 @@
   <Folder Name="/0. common/">
     <Project Path="common/mark.davison.common.abstractions/mark.davison.common.abstractions.csproj" Id="d90740fe-23de-4023-a243-b8bb5d3e0f7e" />
     <Project Path="common/mark.davison.common.authentication.server/mark.davison.common.authentication.server.csproj" Id="3818cce9-46d4-49e7-8a87-0b3f47c29542" />
+    <Project Path="common/mark.davison.common.client.abstractions/mark.davison.common.client.abstractions.csproj" Id="5af766ba-54de-423c-b222-82859bc4eb0d" />
+    <Project Path="common/mark.davison.common.client.web.abstractions/mark.davison.common.client.web.abstractions.csproj" Id="eaac3ac1-7ea2-4297-9d3a-0b0ad6dc387c" />
+    <Project Path="common/mark.davison.common.client.web/mark.davison.common.client.web.csproj" Id="6d9d9c14-116b-4b5c-b1c9-d74adf0bb825" />
+    <Project Path="common/mark.davison.common.client/mark.davison.common.client.csproj" Id="8e3aec05-f06b-44f5-b897-1cf299cf69aa" />
     <Project Path="common/mark.davison.common.generators/mark.davison.common.generators.csproj" Id="c8e316f8-a720-4dc9-b69f-b000c0a310c2" />
     <Project Path="common/mark.davison.common.persistence.abstractions/mark.davison.common.persistence.abstractions.csproj" Id="873d7584-a389-4170-9963-dab8e597e33a" />
     <Project Path="common/mark.davison.common.server.abstractions/mark.davison.common.server.abstractions.csproj" Id="96275c83-fff9-4934-861f-68ee0972e0cd" />
@@ -31,7 +35,10 @@
   <Folder Name="/3. shared/tests/" />
   <Folder Name="/4. desktop/" />
   <Folder Name="/4. desktop/tests/" />
-  <Folder Name="/5. web/" />
+  <Folder Name="/5. web/">
+    <Project Path="web/mark.davison.kyiv.web.components/mark.davison.kyiv.web.components.csproj" Id="7f9d529f-dec4-421c-99eb-ac6fda668eb9" />
+    <Project Path="web/mark.davison.kyiv.web.ui/mark.davison.kyiv.web.ui.csproj" Id="758a128c-0320-477d-b7a7-6f8aad85101c" />
+  </Folder>
   <Folder Name="/5. web/tests/" />
   <Folder Name="/Solution Items/">
     <File Path="../.gitignore" />
