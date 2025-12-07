@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "Kyiv Api": {
+      "commandName": "DebugRoslynComponent",
+      "targetProject": "..\\..\\api\\mark.davison.kyiv.api\\mark.davison.kyiv.api.csproj"
+    },
+    "Kyiv Dto": {
+      "commandName": "DebugRoslynComponent",
+      "targetProject": "..\\..\\shared\\mark.davison.kyiv.shared.models.dto\\mark.davison.kyiv.shared.models.dto.csproj"
+    }
+  }
+}

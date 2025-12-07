@@ -1,4 +1,5 @@
 ﻿@using MudBlazor.Charts
+@using System.Security.Claims
 @using mark.davison.kyiv.shared.models.dto.Scenarios.Queries.Startup
 @using mark.davison.kyiv.shared.models.dto.Shared
 @attribute [Authorize]
@@ -16,6 +17,13 @@
 			@foreach (var linkedProvider in context.User.FindAll("provider"))
 			{
 				<li>@linkedProvider.Value</li>	
+			}
+		</ul><br/>
+		<span>These are all the roles you have</span> <br />
+		<ul>
+			@foreach (var role in context.User.FindAll(ClaimTypes.Role))
+			{
+				<li>@role.Value</li>
 			}
 		</ul>
 		@if (_startupData is not null)

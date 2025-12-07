@@ -5,6 +5,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
+  <PropertyGroup>
+    <CQRSNamespacePrefix>mark.davison</CQRSNamespacePrefix>
+  </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.0" />
@@ -14,7 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\common\mark.davison.common.authentication.server\mark.davison.common.authentication.server.csproj" />
-    <ProjectReference Include="..\..\common\mark.davison.common.generators\mark.davison.common.generators.csproj" OutputItemType="Analyzer" />
+    <ProjectReference Include="..\..\common\mark.davison.common.generators\mark.davison.common.generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\mark.davison.kyiv.api.persistence\mark.davison.kyiv.api.persistence.csproj" />
     <ProjectReference Include="..\mark.davison.kyiv.api.queries\mark.davison.kyiv.api.queries.csproj" />
   </ItemGroup>

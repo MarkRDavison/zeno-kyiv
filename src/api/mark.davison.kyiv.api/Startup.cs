@@ -2,13 +2,17 @@
 using mark.davison.common.server.abstractions.CQRS;
 using mark.davison.common.server.CQRS;
 using mark.davison.common.server.Ignition;
+using mark.davison.common.source.generators.CQRS;
+using mark.davison.kyiv.api.queries;
 using mark.davison.kyiv.api.queries.Scenarios.AdminSettings;
 using mark.davison.kyiv.api.queries.Scenarios.Startup;
+using mark.davison.kyiv.shared.models.dto;
 using mark.davison.kyiv.shared.models.dto.Scenarios.Queries.AdminSettings;
 using mark.davison.kyiv.shared.models.dto.Scenarios.Queries.Startup;
 
 namespace mark.davison.kyiv.api;
 
+[UseCQRSServer(typeof(Startup), typeof(DtosRootType)/*, typeof(CommandsRootType)*/, typeof(QueriesRootType))]
 public sealed class Startup
 {
     public IConfiguration Configuration { get; }
@@ -71,7 +75,8 @@ public sealed class Startup
             .UseAuthorization()
             .UseEndpoints(endpoints =>
             {
-                endpoints.MapBackendRemoteAuthenticationEndpoints<KyivDbContext>();
+                endpoints
+                    .MapBackendRemoteAuthenticationEndpoints<KyivDbContext>();
                 // TODO: SO MANUAL
                 endpoints
                     .MapGet(
