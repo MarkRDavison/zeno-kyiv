@@ -1,6 +1,6 @@
 ﻿namespace mark.davison.kyiv.api.persistence;
 
-public sealed class KyivDbContext : DbContext
+public sealed class KyivDbContext : DbContextBase<KyivDbContext>
 {
     public KyivDbContext(DbContextOptions options) : base(options)
     {
@@ -9,7 +9,8 @@ public sealed class KyivDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(UserEntityConfiguration).Assembly);
+        modelBuilder
+            .ApplyConfigurationsFromAssembly(typeof(UserEntityConfiguration).Assembly);
     }
 
     public DbSet<User> Users => Set<User>();

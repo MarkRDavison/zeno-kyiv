@@ -1,11 +1,5 @@
-﻿using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Text;
-using System.Collections.Immutable;
-using System.Text;
-
-namespace mark.davison.common.generators.CQRS;
-
+﻿namespace mark.davison.common.generators.CQRS;
+/*
 [Generator(LanguageNames.CSharp)]
 public class IncrementalCQRSGenerator : IIncrementalGenerator
 {
@@ -507,7 +501,7 @@ public class IncrementalCQRSGenerator : IIncrementalGenerator
             builder.AppendLine($"                \"/api/{activity.Endpoint}\",");
             builder.AppendLine($"                async (HttpContext context, CancellationToken cancellationToken) =>");
             builder.AppendLine($"                {{");
-            builder.AppendLine($"                    var dispatcher = context.RequestServices.GetRequiredService<{type}Dispatcher>();");
+            builder.AppendLine($"                    var dispatcher = context.RequestServices.GetRequiredService<I{type}Dispatcher>();");
 
             if (type == CQRSActivityType.Command)
             {
@@ -628,3 +622,4 @@ public class IncrementalCQRSGenerator : IIncrementalGenerator
         return root;
     }
 }
+*/

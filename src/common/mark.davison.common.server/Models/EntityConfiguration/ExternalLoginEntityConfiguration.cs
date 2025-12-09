@@ -18,6 +18,12 @@ public sealed class ExternalLoginEntityConfiguration : IEntityTypeConfiguration<
             .Property(e => e.LastModified);
 
         builder
+            .Property(e => e.Provider);
+
+        builder
+            .Property(e => e.ProviderSubject);
+
+        builder
             .HasIndex(_ => new { _.Provider, _.ProviderSubject })
             .IsUnique(true);
 

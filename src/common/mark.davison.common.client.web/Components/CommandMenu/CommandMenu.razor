@@ -1,0 +1,15 @@
+﻿@namespace mark.davison.common.client.web.Components
+
+<MudMenu Disabled="@Disabled" Icon="@Icons.Material.Filled.MoreHoriz" AnchorOrigin="@AnchorOrigin">
+    @foreach (var item in Items)
+    {
+        @if (item.Divider)
+        {
+            <MudDivider />   
+        }
+        else {
+            <MudMenuItem OnClick="@(() => OnActivate(item))"
+                         Disabled="@item.Disabled">@item.Text</MudMenuItem>
+        }
+    }
+</MudMenu>

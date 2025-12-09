@@ -1,4 +1,4 @@
-﻿namespace mark.davison.common.persistence.abstractions.Helpers;
+﻿namespace mark.davison.common.persistence.Helpers;
 
 public interface IDataSeeder
 {

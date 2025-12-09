@@ -1,5 +1,4 @@
-﻿namespace mark.davison.common.server.Models;
-
+﻿namespace mark.davison.common.persistence;
 
 public class BaseEntity
 {
@@ -7,6 +6,4 @@ public class BaseEntity
     public required DateTime Created { get; set; }
     public required DateTime LastModified { get; set; }
     public required Guid UserId { get; set; }
-
-    public virtual User? User { get; set; }
 }

@@ -1,0 +1,15 @@
+﻿global using mark.davison.common.persistence;
+global using mark.davison.common.persistence.Configuration;
+global using mark.davison.common.persistence.Helpers;
+global using mark.davison.common.persistence.Ignition;
+global using mark.davison.common.server.abstractions.Configuration;
+global using mark.davison.common.server.Ignition;
+global using mark.davison.common.server.Models;
+global using mark.davison.common.server.Models.EntityConfiguration;
+global using mark.davison.common.server.sample.api.Configuration;
+global using mark.davison.common.server.sample.api.Entities;
+global using mark.davison.common.server.sample.api.Persistence;
+global using mark.davison.common.server.sample.api.Persistence.Configuration;
+global using mark.davison.common.source.generators.CQRS;
+global using Microsoft.EntityFrameworkCore;
+global using Microsoft.EntityFrameworkCore.Metadata.Builders;

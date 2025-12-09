@@ -1,1 +1,11 @@
-﻿
+﻿global using mark.davison.common.persistence.Configuration;
+global using mark.davison.common.persistence.Helpers;
+global using mark.davison.common.server.abstractions.Configuration;
+global using Microsoft.EntityFrameworkCore;
+global using Microsoft.EntityFrameworkCore.ChangeTracking;
+global using Microsoft.EntityFrameworkCore.Metadata.Builders;
+global using Microsoft.EntityFrameworkCore.Storage;
+global using Microsoft.Extensions.DependencyInjection;
+global using Npgsql;
+global using System.Diagnostics.CodeAnalysis;
+global using System.Linq.Expressions;

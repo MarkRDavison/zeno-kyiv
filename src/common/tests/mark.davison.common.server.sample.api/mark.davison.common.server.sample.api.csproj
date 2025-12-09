@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\mark.davison.common.authentication.server\mark.davison.common.authentication.server.csproj" />
+    <ProjectReference Include="..\..\mark.davison.common.generators\mark.davison.common.generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\mark.davison.common.persistence.abstractions\mark.davison.common.persistence.csproj" />
+    <ProjectReference Include="..\..\mark.davison.common.server\mark.davison.common.server.csproj" />
+  </ItemGroup>
+
+</Project>

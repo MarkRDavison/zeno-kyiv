@@ -1,0 +1,16 @@
+﻿@namespace mark.davison.common.client.web.Components
+
+<MudSelect T="Guid?" id="@Id" Value="@Value" ValueChanged="@ValueChanged" Label="@Label" For="@For" Required="@Required">
+
+    @if (!Items.Any())
+    {
+        <MudSelectItem Disabled T="Guid?" Value="Guid.Empty">No items</MudSelectItem>
+    }
+    else
+    {
+        @foreach (var item in Items)
+        {
+            <MudSelectItem T="Guid?" Value="@item.Id">@item.Name</MudSelectItem>
+        }
+    }
+</MudSelect>

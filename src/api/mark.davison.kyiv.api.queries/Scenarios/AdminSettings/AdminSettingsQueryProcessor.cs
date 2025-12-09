@@ -2,6 +2,13 @@
 
 public sealed class AdminSettingsQueryProcessor : IQueryProcessor<AdminSettingsQueryRequest, AdminSettingsQueryResponse>
 {
+    private readonly IDbContext _dbContext;
+
+    public AdminSettingsQueryProcessor(IDbContext dbContext)
+    {
+        _dbContext = dbContext;
+    }
+
     public async Task<AdminSettingsQueryResponse> ProcessAsync(AdminSettingsQueryRequest request, ICurrentUserContext currentUserContext, CancellationToken cancellationToken)
     {
         await Task.CompletedTask;

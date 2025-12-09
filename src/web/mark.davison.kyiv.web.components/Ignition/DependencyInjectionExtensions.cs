@@ -4,17 +4,10 @@ public static class DependencyInjectionExtensions
 {
     public static IServiceCollection AddKyivComponents(this IServiceCollection services)
     {
-        services
-            .AddAuthentication()
-            .AddSingleton<IClientHttpRepository>(_ =>
-            {
-                return new ClientHttpRepository(
-                    "https://localhost:40000",
-                    _.GetRequiredService<IHttpClientFactory>().CreateClient("API"),
-                    _.GetRequiredService<ILogger<ClientHttpRepository>>());
-            })
-            .AddHttpClient("API")
-            .AddHttpMessageHandler(_ => new CookieHandler());
+        services.UseClientRepository(WebConstants.ApiClientName, WebConstants.LocalBffRoot);
+        services.UseAuthentication(WebConstants.ApiClientName);
+        services.UseClientCQRS(typeof(Routes));
+        services.UseCommonClient();
 
         return services;
     }

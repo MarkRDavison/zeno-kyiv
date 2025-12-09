@@ -1,30 +1,23 @@
-﻿using mark.davison.common.persistence.abstractions.Helpers;
-using mark.davison.common.server.abstractions.Configuration;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Options;
-
-namespace mark.davison.common.server.Services;
+﻿namespace mark.davison.common.server.Services;
 
 public abstract class ApiApplicationHealthStateHostedService<TDbContext, TAppSettings> : IHostedService
     where TDbContext : DbContext
     where TAppSettings : class, IRootAppSettings
 {
-    private bool? _started { get; set; }
-    private bool? _ready { get; set; }
-    private bool? _healthy { get; set; }
-    private readonly TaskCompletionSource _readySource = new();
-
-    private readonly IHostApplicationLifetime _hostApplicationLifetime;
+    protected readonly IApplicationHealthState _applicationHealthState;
+    protected readonly IHostApplicationLifetime _hostApplicationLifetime;
     private readonly IDbContextFactory<TDbContext> _dbContextFactory;
     private readonly IOptions<TAppSettings> _appSettings;
     private readonly IDataSeeder? _dataSeeder;
 
     public ApiApplicationHealthStateHostedService(
+        IApplicationHealthState applicationHealthState,
         IHostApplicationLifetime hostApplicationLifetime,
         IDbContextFactory<TDbContext> dbContextFactory,
         IOptions<TAppSettings> appSettings,
         IDataSeeder? dataSeeder)
     {
+        _applicationHealthState = applicationHealthState;
         _hostApplicationLifetime = hostApplicationLifetime;
         _dbContextFactory = dbContextFactory;
         _appSettings = appSettings;
@@ -36,17 +29,17 @@ public abstract class ApiApplicationHealthStateHostedService<TDbContext, TAppSet
         await Task.CompletedTask;
         _hostApplicationLifetime.ApplicationStarted.Register(() =>
         {
-            _started = true;
+            _applicationHealthState.Started = true;
         });
 
         _hostApplicationLifetime.ApplicationStopping.Register(() =>
         {
-            _ready = false;
+            _applicationHealthState.Ready = false;
         });
 
         _hostApplicationLifetime.ApplicationStopped.Register(() =>
         {
-            _ready = false;
+            _applicationHealthState.Ready = false;
         });
 
         _ = BaseStartAsync(cancellationToken);
@@ -55,7 +48,7 @@ public abstract class ApiApplicationHealthStateHostedService<TDbContext, TAppSet
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         await Task.CompletedTask;
-        _ready = false;
+        _applicationHealthState.Ready = false;
     }
 
     protected abstract Task InitDatabaseProduction(TDbContext dbContext, CancellationToken cancellationToken);
@@ -89,8 +82,8 @@ public abstract class ApiApplicationHealthStateHostedService<TDbContext, TAppSet
 
         await AdditionalStartAsync(cancellationToken);
 
-        _ready = true;
-        _readySource.SetResult();
+        _applicationHealthState.Ready = true;
+        _applicationHealthState.ReadySource.SetResult();
     }
 
     protected virtual async Task AdditionalStartAsync(CancellationToken cancellationToken)

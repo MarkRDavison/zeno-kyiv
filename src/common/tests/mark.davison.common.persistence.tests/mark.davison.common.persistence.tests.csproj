@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="TUnit" Version="1.5.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\mark.davison.common.persistence.abstractions\mark.davison.common.persistence.csproj" />
+    <ProjectReference Include="..\mark.davison.common.server.sample.api\mark.davison.common.server.sample.api.csproj" />
+  </ItemGroup>
+
+</Project>

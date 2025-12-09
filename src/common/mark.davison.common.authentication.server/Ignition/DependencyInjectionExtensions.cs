@@ -1,16 +1,4 @@
-﻿using mark.davison.common.authentication.server.Configuration;
-using mark.davison.common.authentication.server.Models;
-using mark.davison.common.Constants;
-using mark.davison.common.server.abstractions.Services;
-using Microsoft.AspNetCore.Authentication.OAuth;
-using Microsoft.IdentityModel.Protocols.OpenIdConnect;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.Net.Http.Headers;
-using System.IdentityModel.Tokens.Jwt;
-using System.Net.Http.Headers;
-using System.Text.Json;
-
-namespace mark.davison.common.authentication.server.Ignition;
+﻿namespace mark.davison.common.authentication.server.Ignition;
 
 public static class DependencyInjectionExtensions
 {

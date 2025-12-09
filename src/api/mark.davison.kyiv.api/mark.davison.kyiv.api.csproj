@@ -18,8 +18,11 @@
   <ItemGroup>
     <ProjectReference Include="..\..\common\mark.davison.common.authentication.server\mark.davison.common.authentication.server.csproj" />
     <ProjectReference Include="..\..\common\mark.davison.common.generators\mark.davison.common.generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\common\mark.davison.common.persistence.migrations.postgres\mark.davison.common.persistence.migrations.postgres.csproj" />
+    <ProjectReference Include="..\..\common\mark.davison.common.persistence.migrations.sqlite\mark.davison.common.persistence.migrations.sqlite.csproj" />
     <ProjectReference Include="..\mark.davison.kyiv.api.persistence\mark.davison.kyiv.api.persistence.csproj" />
     <ProjectReference Include="..\mark.davison.kyiv.api.queries\mark.davison.kyiv.api.queries.csproj" />
+    <ProjectReference Include="..\migrations\mark.davison.api.migrations.sqlite\mark.davison.api.migrations.sqlite.csproj" />
   </ItemGroup>
 
 </Project>

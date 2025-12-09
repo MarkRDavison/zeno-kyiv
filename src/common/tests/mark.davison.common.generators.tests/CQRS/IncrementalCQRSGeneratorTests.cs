@@ -102,7 +102,7 @@ namespace mark.davison.tests.shared
 }
 ";
 
-        var result = GeneratorTestHelpers.RunSourceGenerator<IncrementalCQRSGenerator>(
+        var result = GeneratorTestHelpers.RunSourceGenerator<IncrementalMetadataCQRSGenerator>(
             source,
             [
                 typeof(Object),
@@ -146,21 +146,21 @@ namespace mark.davison.tests.shared
         await Assert.That(sourceStringDi).Contains("public static class CQRSDependecyInjectionExtensions");
         await Assert.That(sourceStringDi).Contains("services.AddScoped<mark.davison.common.CQRS.IQueryDispatcher, mark.davison.common.server.CQRS.QueryDispatcher>();");
         await Assert.That(sourceStringDi).Contains("services.AddScoped<mark.davison.common.CQRS.ICommandDispatcher, mark.davison.common.server.CQRS.CommandDispatcher>();");
-        await Assert.That(sourceStringDi).Contains("services.AddScoped<ICommandHandler<global::mark.davison.tests.shared.TestCommand,global::mark.davison.tests.shared.TestCommandResponse>,global::mark.davison.tests.shared.TestCommandHandler>();");
-        await Assert.That(sourceStringDi).Contains("services.AddScoped<IQueryHandler<global::mark.davison.tests.shared.TestQuery,global::mark.davison.tests.shared.TestQueryResponse>,global::mark.davison.tests.shared.TestQueryHandler>();");
+        await Assert.That(sourceStringDi).Contains("services.AddScoped<ICommandProcessor<global::mark.davison.tests.shared.TestCommand,global::mark.davison.tests.shared.TestCommandResponse>,global::mark.davison.tests.shared.TestCommandProcessor>();");
+        await Assert.That(sourceStringDi).Contains("services.AddScoped<IQueryProcessor<global::mark.davison.tests.shared.TestQuery,global::mark.davison.tests.shared.TestQueryResponse>,global::mark.davison.tests.shared.TestQueryProcessor>();");
 
         await Assert.That(sourceStringEr).Contains("namespace mark.davison.tests.api");
         await Assert.That(sourceStringEr).Contains("public static class GenerateEndpointRouteExtensions");
-        await Assert.That(sourceStringEr).Contains("public static void MapCQRSEndpoints(this IEndpointRouteBuilder endpoints)");
+        await Assert.That(sourceStringEr).Contains("public static IEndpointRouteBuilder MapCQRSEndpoints(this IEndpointRouteBuilder endpoints)");
 
         await Assert.That(sourceStringEr).Contains("endpoints.MapPost(");
         await Assert.That(sourceStringEr).Contains("\"/api/test-command\"");
-        await Assert.That(sourceStringEr).Contains("var request = await WebUtilities.GetRequestFromBody<global::mark.davison.tests.shared.TestCommand,global::mark.davison.tests.shared.TestCommandResponse>(context.Request);");
+        await Assert.That(sourceStringEr).Contains("var request = WebUtilities.GetRequestFromBody<global::mark.davison.tests.shared.TestCommand,global::mark.davison.tests.shared.TestCommandResponse>(context.Request);");
         await Assert.That(sourceStringEr).Contains("return await dispatcher.Dispatch<global::mark.davison.tests.shared.TestCommand,global::mark.davison.tests.shared.TestCommandResponse>(request, cancellationToken);");
 
         await Assert.That(sourceStringEr).Contains("endpoints.MapGet(");
         await Assert.That(sourceStringEr).Contains("\"/api/test-query\"");
-        await Assert.That(sourceStringEr).Contains("var request = await WebUtilities.GetRequestFromQuery<global::mark.davison.tests.shared.TestQuery,global::mark.davison.tests.shared.TestQueryResponse>(context.Request);");
+        await Assert.That(sourceStringEr).Contains("var request = WebUtilities.GetRequestFromQuery<global::mark.davison.tests.shared.TestQuery,global::mark.davison.tests.shared.TestQueryResponse>(context.Request);");
         await Assert.That(sourceStringEr).Contains("return await dispatcher.Dispatch<global::mark.davison.tests.shared.TestQuery,global::mark.davison.tests.shared.TestQueryResponse>(request, cancellationToken);");
     }
 }

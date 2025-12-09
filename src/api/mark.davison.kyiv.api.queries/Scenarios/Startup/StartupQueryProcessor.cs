@@ -2,11 +2,11 @@
 
 public sealed class StartupQueryProcessor : IQueryProcessor<StartupQueryRequest, StartupQueryResponse>
 {
-    private readonly KyivDbContext _dbContext;
+    private readonly IDbContext _dbContext;
     private readonly IOptions<AuthenticationSettings> _authSettings;
 
     public StartupQueryProcessor(
-        KyivDbContext dbContext,
+        IDbContext dbContext,
         IOptions<AuthenticationSettings> authSettings)
     {
         _dbContext = dbContext;

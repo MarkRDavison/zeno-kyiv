@@ -4,7 +4,7 @@
 public static class SerializationHelpers
 {
     public static JsonSerializerOptions CreateStandardSerializationOptions() =>
-        new JsonSerializerOptions
+        new()
         {
             PropertyNameCaseInsensitive = true,
             ReferenceHandler = ReferenceHandler.IgnoreCycles,

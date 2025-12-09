@@ -1,6 +1,4 @@
-﻿using mark.davison.common.server;
-
-namespace mark.davison.kyiv.bff;
+﻿namespace mark.davison.kyiv.bff;
 
 public sealed class Startup
 {
@@ -22,14 +20,14 @@ public sealed class Startup
                 o.AddDefaultPolicy(builder =>
                 {
                     builder
-                        .WithOrigins("https://localhost:8080")
+                        .WithOrigins(AppSettings.WEB_ORIGIN)
                         .AllowAnyMethod()
                         .AllowAnyHeader()
                         .AllowCredentials();
                 });
             })
             .AddLogging()
-            .AddSingleton<IDateService>(_ => new DateService(DateService.DateMode.Utc))
+            .AddServerCore()
             .AddScoped<IUserAuthenticationService, RemoteUserAuthenticationService>()
             .AddRedis(AppSettings.REDIS, "zeno_kyiv_dev_")
             .AddRemoteForwarderAuthentication(AppSettings.API_ENDPOINT)
@@ -55,9 +53,7 @@ public sealed class Startup
             .UseEndpoints(endpoints =>
             {
                 endpoints
-                    .MapInteractiveAuthenticationEndpoints(AppSettings.WEB_ORIGIN);
-
-                endpoints
+                    .MapInteractiveAuthenticationEndpoints(AppSettings.WEB_ORIGIN)
                     .UseApiProxy(AppSettings.API_ENDPOINT);
             });
     }

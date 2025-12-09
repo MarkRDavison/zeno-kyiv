@@ -1,0 +1,19 @@
+﻿@namespace mark.davison.common.client.web.Components
+
+<MudButton 
+    Disabled="@Disabled" 
+    Color="@Color" 
+    OnClick="@OnClick"
+    StartIcon="@(InProgress ? null : StartIcon)"
+    IconSize="Size.Large"
+    Variant="Variant.Filled"
+    Size="Size.Large">
+    @if (InProgress)
+    {
+        <MudProgressCircular Size="Size.Small" Color="@Color" Indeterminate="true" />
+    }
+    else
+    {
+        @Label
+    }
+</MudButton>

@@ -1,6 +1,4 @@
-﻿using mark.davison.common.Constants;
-
-namespace mark.davison.kyiv.api.persistence;
+﻿namespace mark.davison.kyiv.api.persistence;
 
 public sealed class KyivDataSeeder : IDataSeeder
 {

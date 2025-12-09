@@ -1,15 +1,15 @@
-﻿using mark.davison.common.server.Services;
-
-namespace mark.davison.kyiv.api;
+﻿namespace mark.davison.kyiv.api;
 
 public class ApplicationHealthStateHostedService : ApiApplicationHealthStateHostedService<KyivDbContext, AppSettings>
 {
     public ApplicationHealthStateHostedService(
+        IApplicationHealthState applicationHealthState,
         IHostApplicationLifetime hostApplicationLifetime,
         IDbContextFactory<KyivDbContext> dbContextFactory,
         IOptions<AppSettings> appSettings,
         IDataSeeder? dataSeeder
     ) : base(
+        applicationHealthState,
         hostApplicationLifetime,
         dbContextFactory,
         appSettings,

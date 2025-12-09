@@ -6,9 +6,9 @@ public class AuthenticationService : IAuthenticationService
 {
     private readonly HttpClient _client;
 
-    public AuthenticationService(IHttpClientFactory httpClientFactory)
+    public AuthenticationService(IHttpClientFactory httpClientFactory, string clientName)
     {
-        _client = httpClientFactory.CreateClient("API");
+        _client = httpClientFactory.CreateClient(clientName);
     }
 
     public void AuthenticateUser(ClaimsPrincipal user)
@@ -30,7 +30,6 @@ public class AuthenticationService : IAuthenticationService
 
         var claims = new List<Claim>();
 
-        // Name / Email / UserId
         if (root.TryGetProperty("name", out var nameProp))
         {
             claims.Add(new Claim(ClaimTypes.Name, nameProp.GetString() ?? ""));
@@ -60,7 +59,6 @@ public class AuthenticationService : IAuthenticationService
             }
         }
 
-        // Roles / claims
         if (root.TryGetProperty("claims", out var claimsProp) && claimsProp.ValueKind == JsonValueKind.Array)
         {
             foreach (var c in claimsProp.EnumerateArray())
@@ -73,8 +71,7 @@ public class AuthenticationService : IAuthenticationService
             }
         }
 
-        var identity = new ClaimsIdentity(claims, "KYIV");
-        return (true, new ClaimsPrincipal(identity));
+        return (true, new ClaimsPrincipal(new ClaimsIdentity(claims, "mark.davison.common")));
     }
 
     public async Task EvaluateAuthentication()
@@ -82,8 +79,7 @@ public class AuthenticationService : IAuthenticationService
         var request = new HttpRequestMessage
         {
             Method = HttpMethod.Get,
-            // TODO: Remove hard coded address
-            RequestUri = new Uri("https://localhost:40000/account/user")
+            RequestUri = new Uri("https://localhost:40000/account/user") // TODO: Constants -> /auth/user
         };
 
         var response = await _client.SendAsync(request);
@@ -93,6 +89,7 @@ public class AuthenticationService : IAuthenticationService
             if (await response.Content.ReadAsStringAsync() is { } context &&
                 !string.IsNullOrEmpty(context))
             {
+                // TODO: Need type and deserialize
                 var (authorized, principal) = FromJson(context);
 
                 if (authorized)

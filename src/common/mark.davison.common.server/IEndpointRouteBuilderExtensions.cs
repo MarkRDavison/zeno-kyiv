@@ -1,13 +1,30 @@
-﻿using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Routing;
-using System.Net.Http.Headers;
-
-namespace mark.davison.common.server;
+﻿namespace mark.davison.common.server;
 
 public static class IEndpointRouteBuilderExtensions
 {
+    public static IEndpointRouteBuilder MapCommonHealthChecks(this IEndpointRouteBuilder endpoints)
+    {
+        endpoints
+            .MapHealthChecks("/health/startup", new HealthCheckOptions
+            {
+                Predicate = r => r.Name == StartupHealthCheck.Name
+            })
+            .AllowAnonymous();
+        endpoints
+            .MapHealthChecks("/health/liveness", new HealthCheckOptions
+            {
+                Predicate = r => r.Name == LiveHealthCheck.Name
+            })
+            .AllowAnonymous();
+        endpoints
+            .MapHealthChecks("/health/readiness", new HealthCheckOptions
+            {
+                Predicate = r => r.Name == ReadyHealthCheck.Name
+            })
+            .AllowAnonymous();
+
+        return endpoints;
+    }
 
     public static IEndpointRouteBuilder UseApiProxy(
         this IEndpointRouteBuilder endpoints,
@@ -19,13 +36,7 @@ public static class IEndpointRouteBuilderExtensions
             [FromServices] IHttpClientFactory httpClientFactory,
             CancellationToken cancellationToken) =>
         {
-
             var token = await context.GetTokenAsync("id_token");
-            //if (string.IsNullOrEmpty(access_token))
-            //{
-            //    return Results.Unauthorized();
-            //}
-            //
             var client = httpClientFactory.CreateClient("ApiProxy");
             var request = new HttpRequestMessage(
                 new HttpMethod(context.Request.Method),

@@ -1,18 +1,6 @@
-﻿using mark.davison.common.CQRS;
-using mark.davison.common.server.abstractions.CQRS;
-using mark.davison.common.server.CQRS;
-using mark.davison.common.server.Ignition;
-using mark.davison.common.source.generators.CQRS;
-using mark.davison.kyiv.api.queries;
-using mark.davison.kyiv.api.queries.Scenarios.AdminSettings;
-using mark.davison.kyiv.api.queries.Scenarios.Startup;
-using mark.davison.kyiv.shared.models.dto;
-using mark.davison.kyiv.shared.models.dto.Scenarios.Queries.AdminSettings;
-using mark.davison.kyiv.shared.models.dto.Scenarios.Queries.Startup;
+﻿namespace mark.davison.kyiv.api;
 
-namespace mark.davison.kyiv.api;
-
-[UseCQRSServer(typeof(Startup), typeof(DtosRootType)/*, typeof(CommandsRootType)*/, typeof(QueriesRootType))]
+[UseCQRSServer]
 public sealed class Startup
 {
     public IConfiguration Configuration { get; }
@@ -29,74 +17,45 @@ public sealed class Startup
         AppSettings = services.BindAppSettings(Configuration);
 
         services
-            .AddCors()
+            .AddCors(o =>
+            {
+                o.AddDefaultPolicy(builder =>
+                {
+                    builder
+                        .SetIsOriginAllowed(_ => true)
+                        .AllowAnyMethod()
+                        .AllowAnyHeader()
+                        .AllowCredentials();
+                });
+            })
             .AddLogging()
-            .AddSingleton<IDateService>(_ => new DateService(DateService.DateMode.Utc))
             .AddSingleton<IDataSeeder, KyivDataSeeder>()
             .AddAuthorization()
             .AddJwtAuthentication<KyivDbContext>(AppSettings.AUTHENTICATION)
-            .AddHttpClient()
-            .AddHttpContextAccessor()
-            .AddDbContextFactory<KyivDbContext>(_ =>
-            {
-                _.UseSqlite($"Data Source=Kyiv.db");
-                _.EnableSensitiveDataLogging();
-                _.EnableDetailedErrors();
-            })
-            .AddHostedService<ApplicationHealthStateHostedService>()
+            .AddDatabase<KyivDbContext>(
+                AppSettings.PRODUCTION_MODE,
+                AppSettings.DATABASE,
+                typeof(SqliteContextFactory))
+            .AddCoreDbContext<KyivDbContext>()
+            .AddHealthCheckServices<ApplicationHealthStateHostedService>()
             .AddServerCore()
-            // TODO: SO MANUAL
-            .AddScoped<IQueryProcessor<StartupQueryRequest, StartupQueryResponse>, StartupQueryProcessor>()
-            .AddScoped<IQueryHandler<StartupQueryRequest, StartupQueryResponse>>(_ =>
-            {
-                return new ValidateAndProcessQueryHandler<StartupQueryRequest, StartupQueryResponse>(
-                    _.GetRequiredService<IQueryProcessor<StartupQueryRequest, StartupQueryResponse>>());
-            })
-            .AddScoped<IQueryProcessor<AdminSettingsQueryRequest, AdminSettingsQueryResponse>, AdminSettingsQueryProcessor>()
-            .AddScoped<IQueryHandler<AdminSettingsQueryRequest, AdminSettingsQueryResponse>>(_ =>
-            {
-                return new ValidateAndProcessQueryHandler<AdminSettingsQueryRequest, AdminSettingsQueryResponse>(
-                    _.GetRequiredService<IQueryProcessor<AdminSettingsQueryRequest, AdminSettingsQueryResponse>>());
-            });
+            .AddCQRSServer();
     }
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
     {
-        app.UseCors(builder =>
-            builder
-                .SetIsOriginAllowed(_ => true)
-                .AllowAnyMethod()
-                .AllowCredentials()
-                .AllowAnyHeader());
         app
             .UseHttpsRedirection()
             .UseRouting()
+            .UseCors()
             .UseAuthentication()
             .UseAuthorization()
             .UseEndpoints(endpoints =>
             {
                 endpoints
-                    .MapBackendRemoteAuthenticationEndpoints<KyivDbContext>();
-                // TODO: SO MANUAL
-                endpoints
-                    .MapGet(
-                        "/api/startup-query",
-                        async (HttpContext context, CancellationToken cancellationToken) =>
-                        {
-                            var dispatcher = context.RequestServices.GetRequiredService<IQueryDispatcher>();
-                            return await dispatcher.Dispatch<StartupQueryRequest, StartupQueryResponse>(cancellationToken);
-                        })
-                    .AllowAnonymous();
-
-                endpoints
-                    .MapGet(
-                        "/api/admin-settings",
-                        async (HttpContext context, CancellationToken cancellationToken) =>
-                        {
-                            var dispatcher = context.RequestServices.GetRequiredService<IQueryDispatcher>();
-                            return await dispatcher.Dispatch<AdminSettingsQueryRequest, AdminSettingsQueryResponse>(cancellationToken);
-                        })
-                    .RequireAuthorization(p => p.RequireRole("Admin"));
+                    .MapBackendRemoteAuthenticationEndpoints<KyivDbContext>()
+                    .MapCQRSEndpoints()
+                    .MapCommonHealthChecks();
             });
     }
 

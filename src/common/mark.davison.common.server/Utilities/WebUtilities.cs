@@ -1,8 +1,4 @@
-﻿using Microsoft.AspNetCore.Http.HttpResults;
-using System.Text.Json;
-using System.Web;
-
-namespace mark.davison.common.server.Utilities;
+﻿namespace mark.davison.common.server.Utilities;
 
 
 public static class WebUtilities

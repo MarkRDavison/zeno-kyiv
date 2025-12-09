@@ -1,11 +1,4 @@
-﻿using mark.davison.common.client.abstractions.Events;
-using mark.davison.common.client.abstractions.Repository;
-using mark.davison.common.CQRS;
-using Microsoft.Extensions.Logging;
-using System.Text;
-using System.Text.Json;
-
-namespace mark.davison.common.client.Repository;
+﻿namespace mark.davison.common.client.Repository;
 
 public class ClientHttpRepository : IClientHttpRepository
 {
@@ -36,11 +29,14 @@ public class ClientHttpRepository : IClientHttpRepository
         if (attribute == null) { throw new InvalidOperationException("Cannot perform Get against request without GetRequestAttribute"); }
 
         var path = attribute.NamedArguments.First(_ => _.MemberName == nameof(GetRequestAttribute.Path));
+
+        var queryParameters = CreateQueryParameters<TRequest, TResponse>(request);
+
         var pathValue = path.TypedValue.Value as string;
 
         var requestMessage = new HttpRequestMessage(
             HttpMethod.Get,
-            $"{_remoteEndpoint}/api/{pathValue!.TrimStart('/')}");
+            $"{_remoteEndpoint}/api/{pathValue!.TrimStart('/')}{queryParameters.CreateQueryString()}");
         using var response = await _httpClient.SendAsync(requestMessage);
 
         if (!response.IsSuccessStatusCode)
@@ -146,6 +142,31 @@ public class ClientHttpRepository : IClientHttpRepository
         where TResponse : Response, new()
     {
         return Post<TRequest, TResponse>(new TRequest(), cancellationToken);
+    }
+
+    public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request)
+    {
+        return SendAsync(request);
+    }
+
+    public QueryParameters CreateQueryParameters<TQuery, TResponse>(TQuery query)
+        where TQuery : class, IQuery<TQuery, TResponse>
+        where TResponse : class, new()
+    {
+        var queryParameters = new QueryParameters();
+
+        foreach (var property in typeof(TQuery).GetProperties())
+        {
+            var propertyName = property.Name;
+            var propertyValue = property.GetValue(query)?.ToString();
+
+            if (!string.IsNullOrEmpty(propertyValue))
+            {
+                queryParameters.Add(propertyName, propertyValue);
+            }
+        }
+
+        return queryParameters;
     }
 
     public event EventHandler<InvalidHttpResponseEventArgs> OnInvalidHttpResponse = default!;

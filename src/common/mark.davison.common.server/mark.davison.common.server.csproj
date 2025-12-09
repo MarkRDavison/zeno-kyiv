@@ -11,11 +11,12 @@
   </ItemGroup>
 	
   <ItemGroup>
+    <PackageReference Include="Cronos" Version="0.11.1" />
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\mark.davison.common.persistence.abstractions\mark.davison.common.persistence.abstractions.csproj" />
+    <ProjectReference Include="..\mark.davison.common.persistence.abstractions\mark.davison.common.persistence.csproj" />
     <ProjectReference Include="..\mark.davison.common.server.abstractions\mark.davison.common.server.abstractions.csproj" />
     <ProjectReference Include="..\mark.davison.common\mark.davison.common.csproj" />
   </ItemGroup>

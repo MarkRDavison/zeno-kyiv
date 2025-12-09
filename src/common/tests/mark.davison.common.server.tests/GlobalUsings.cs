@@ -1,0 +1,17 @@
+﻿global using mark.davison.common.authentication.server.abstractions.Services;
+global using mark.davison.common.CQRS;
+global using mark.davison.common.server.abstractions.CQRS;
+global using mark.davison.common.server.abstractions.Notifications;
+global using mark.davison.common.server.CQRS;
+global using mark.davison.common.server.Notifications;
+global using mark.davison.common.server.Notifications.Matrix;
+global using mark.davison.common.server.Notifications.Matrix.Client;
+global using mark.davison.common.test;
+global using Microsoft.AspNetCore.Http;
+global using Microsoft.Extensions.Options;
+global using Moq;
+global using System.Net;
+global using System.Net.Http.Headers;
+global using System.Net.Http.Json;
+global using System.Text.Json;
+global using System.Text.Json.Serialization;
