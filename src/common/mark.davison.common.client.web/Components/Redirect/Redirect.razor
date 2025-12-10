@@ -1,0 +1,15 @@
+﻿@namespace mark.davison.common.client.web.Components
+
+@inject IClientNavigationManager _clientNavigation
+
+@code {
+
+    [Parameter, EditorRequired]
+    public required string Url { get; set; }
+
+    protected override void OnInitialized()
+    {
+        _clientNavigation.NavigateTo(Url);
+    }
+
+}

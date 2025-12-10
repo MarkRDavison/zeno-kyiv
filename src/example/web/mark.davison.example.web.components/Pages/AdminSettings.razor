@@ -1,0 +1,28 @@
+﻿@attribute [Authorize(Roles = "Admin")]
+@attribute [Route(Routes.AdminSettings)]
+
+@inject IClientHttpRepository _clientRepository
+@inject AuthenticationStateProvider _authStateProvider
+
+<h1>Admin Settings</h1>
+
+@if (_authState is not null)
+{
+	<span>@($"{_authState.User?.FindFirst(ClaimTypes.Name)?.Value}"), you are an authorized admin :)</span>
+}
+@if (_adminSettings is not null)
+{
+	<br/>
+	<span>Admin request made.</span>
+}
+
+@code {
+	private AuthenticationState? _authState;
+	private AdminSettingsQueryResponse? _adminSettings;
+
+	protected override async Task OnInitializedAsync()
+	{
+		_authState = await _authStateProvider.GetAuthenticationStateAsync();
+		_adminSettings = await _clientRepository.Get<AdminSettingsQueryRequest, AdminSettingsQueryResponse>(CancellationToken.None);
+	}
+}

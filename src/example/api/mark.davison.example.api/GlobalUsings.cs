@@ -1,0 +1,17 @@
+﻿global using mark.davison.common.authentication.server.Configuration;
+global using mark.davison.common.authentication.server.Ignition;
+global using mark.davison.common.persistence.Configuration;
+global using mark.davison.common.persistence.Helpers;
+global using mark.davison.common.persistence.Ignition;
+global using mark.davison.common.server;
+global using mark.davison.common.server.abstractions.Configuration;
+global using mark.davison.common.server.abstractions.Health;
+global using mark.davison.common.server.Configuration;
+global using mark.davison.common.server.Ignition;
+global using mark.davison.common.server.Services;
+global using mark.davison.common.source.generators.CQRS;
+global using mark.davison.example.api.Configuration;
+global using mark.davison.example.api.migrations.sqlite;
+global using mark.davison.example.persistence;
+global using Microsoft.EntityFrameworkCore;
+global using Microsoft.Extensions.Options;

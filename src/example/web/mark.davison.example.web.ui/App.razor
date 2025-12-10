@@ -1,0 +1,23 @@
+﻿<Router AppAssembly="@typeof(App).Assembly" 
+        AdditionalAssemblies="new[]{ typeof(Routes).Assembly }" 
+        NotFoundPage="typeof(NotFound)">
+    <Found Context="routeData">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                <NotAuthorized>
+                    @if (!context.User.Identity?.IsAuthenticated ?? true)
+                    {
+                        <Redirect Url="@Routes.Login" />
+                    }
+                    else
+                    {
+                        <p>You do not have permission to view this page.</p>
+                        <a href="@Routes.Root">Return to home</a>
+                    }
+                </NotAuthorized>
+                <Authorizing>
+                    <div class="p-4">Checking authorization...</div>
+                </Authorizing>
+            </AuthorizeRouteView>
+        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+    </Found>
+</Router>

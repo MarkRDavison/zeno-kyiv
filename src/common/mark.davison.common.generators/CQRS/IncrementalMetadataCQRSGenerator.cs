@@ -215,7 +215,7 @@ public class IncrementalMetadataCQRSGenerator : IIncrementalGenerator
 
             if (type == CQRSActivityType.Command)
             {
-                builder.AppendLine($"                    var request = WebUtilities.GetRequestFromBody<{activity.Request},{activity.Response}>(context.Request);");
+                builder.AppendLine($"                    var request = await WebUtilities.GetRequestFromBody<{activity.Request},{activity.Response}>(context.Request);");
             }
             else
             {

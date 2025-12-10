@@ -155,7 +155,7 @@ namespace mark.davison.tests.shared
 
         await Assert.That(sourceStringEr).Contains("endpoints.MapPost(");
         await Assert.That(sourceStringEr).Contains("\"/api/test-command\"");
-        await Assert.That(sourceStringEr).Contains("var request = WebUtilities.GetRequestFromBody<global::mark.davison.tests.shared.TestCommand,global::mark.davison.tests.shared.TestCommandResponse>(context.Request);");
+        await Assert.That(sourceStringEr).Contains("var request = await WebUtilities.GetRequestFromBody<global::mark.davison.tests.shared.TestCommand,global::mark.davison.tests.shared.TestCommandResponse>(context.Request);");
         await Assert.That(sourceStringEr).Contains("return await dispatcher.Dispatch<global::mark.davison.tests.shared.TestCommand,global::mark.davison.tests.shared.TestCommandResponse>(request, cancellationToken);");
 
         await Assert.That(sourceStringEr).Contains("endpoints.MapGet(");

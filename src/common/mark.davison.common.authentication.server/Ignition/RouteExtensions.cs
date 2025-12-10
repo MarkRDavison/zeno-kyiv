@@ -1,7 +1,4 @@
-﻿using mark.davison.common.authentication.server.Models;
-using mark.davison.common.Constants;
-using mark.davison.common.server.abstractions.Services;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using System.Text;
 
 namespace mark.davison.common.authentication.server.Ignition;
@@ -15,6 +12,7 @@ public static class RouteExtensions
                     "/api/external-login",
                     async (HttpContext context, [FromQuery] string provider, [FromQuery] string providerSub) =>
                     {
+                        Console.Error.WriteLine("TODO: Make nicer");
                         var dbContext = context.RequestServices.GetRequiredService<TDbContext>();
 
                         var externalLogin = await dbContext.Set<ExternalLogin>()
@@ -34,6 +32,7 @@ public static class RouteExtensions
             "/api/user-roles",
             async (HttpContext context, [FromQuery] Guid userId) =>
             {
+                Console.Error.WriteLine("TODO: Make nicer");
                 var dbContext = context.RequestServices.GetRequiredService<TDbContext>();
 
                 var user = await dbContext.Set<User>()
@@ -57,6 +56,7 @@ public static class RouteExtensions
             "/api/tenant",
             async (HttpContext context, [FromQuery] Guid tenantId) =>
             {
+                Console.Error.WriteLine("TODO: Make nicer");
                 var dbContext = context.RequestServices.GetRequiredService<TDbContext>();
 
                 var tenant = await dbContext.Set<Tenant>()
@@ -75,6 +75,7 @@ public static class RouteExtensions
             "/api/external-logins",
             async (HttpContext context, [FromQuery] Guid userId) =>
             {
+                Console.Error.WriteLine("TODO: Make nicer");
                 var dbContext = context.RequestServices.GetRequiredService<TDbContext>();
 
                 var user = await dbContext.Set<User>()
@@ -97,6 +98,7 @@ public static class RouteExtensions
             "/api/user",
             async (HttpContext context, [FromQuery] Guid? userId, [FromQuery] string? email) =>
             {
+                Console.Error.WriteLine("TODO: Make nicer");
                 var dbContext = context.RequestServices.GetRequiredService<TDbContext>();
 
                 var userQuery = dbContext.Set<User>()
@@ -126,6 +128,7 @@ public static class RouteExtensions
             "/api/tenant/create",
             async (HttpContext context) =>
             {
+                Console.Error.WriteLine("TODO: Make nicer");
                 var dbContext = context.RequestServices.GetRequiredService<TDbContext>();
 
                 var payload = await context.Request.ReadFromJsonAsync<CreateTenantDto>(context.RequestAborted);
@@ -190,6 +193,7 @@ public static class RouteExtensions
             "/api/user/create",
             async (HttpContext context) =>
             {
+                Console.Error.WriteLine("TODO: Make nicer");
                 var payload = await context.Request.ReadFromJsonAsync<CreateUserDto>(context.RequestAborted);
 
                 if (payload is null)
@@ -237,6 +241,7 @@ public static class RouteExtensions
             "/api/user/{userId}/external-logins",
             async (HttpContext context, Guid userId) =>
             {
+                Console.Error.WriteLine("TODO: Make nicer");
                 var payload = await context.Request.ReadFromJsonAsync<CreateExternalLoginDto>(context.RequestAborted);
 
                 if (payload is null)
@@ -276,6 +281,7 @@ public static class RouteExtensions
             "/api/user/{userId}/external-logins/{externalLoginId}",
             async (HttpContext context, Guid userId, Guid externalLoginId) =>
             {
+                Console.Error.WriteLine("TODO: Make nicer");
                 var dbContext = context.RequestServices.GetRequiredService<TDbContext>();
 
                 var user = await dbContext

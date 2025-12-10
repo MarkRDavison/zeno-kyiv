@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\common\mark.davison.common.authentication.server\mark.davison.common.authentication.server.csproj" />
+    <ProjectReference Include="..\..\..\common\mark.davison.common.server\mark.davison.common.server.csproj" />
+    <ProjectReference Include="..\..\shared\mark.davison.example.shared.models.dto\mark.davison.example.shared.models.dto.csproj" />
+  </ItemGroup>
+
+</Project>

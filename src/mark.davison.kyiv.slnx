@@ -1,4 +1,28 @@
 <Solution>
+  <Folder Name="/0. example/" />
+  <Folder Name="/0. example/api/">
+    <Project Path="example/api/mark.davison.example.api.models.configuration/mark.davison.example.api.models.configuration.csproj" Id="3f0d6b15-c485-4e1a-8067-c6221109ce01" />
+    <Project Path="example/api/mark.davison.example.api.models/mark.davison.example.api.models.csproj" Id="55edfa8c-7801-43ab-90dd-88fbe31bb1da" />
+    <Project Path="example/api/mark.davison.example.api/mark.davison.example.api.csproj" Id="e1a99cef-ff20-47e6-87f5-fc9fc43aa396" />
+    <Project Path="example/api/mark.davison.example.commands/mark.davison.example.commands.csproj" Id="e9169ec5-efe4-42b9-83f6-7d78d5926768" />
+    <Project Path="example/api/mark.davison.example.persistence/mark.davison.example.persistence.csproj" Id="5bd56ef1-925c-40e8-883f-1753ec8f54e1" />
+    <Project Path="example/api/mark.davison.example.queries/mark.davison.example.queries.csproj" Id="394b0e69-5a47-4ef0-913e-a05cbd89d4ea" />
+  </Folder>
+  <Folder Name="/0. example/api/migrations/">
+    <Project Path="example/api/migrations/mark.davison.example.api.migrations.sqlite/mark.davison.example.api.migrations.sqlite.csproj" Id="da5b0431-9e0e-48e4-a16c-c0f559242c99" />
+  </Folder>
+  <Folder Name="/0. example/bff/">
+    <Project Path="example/bff/mark.davison.example.bff/mark.davison.example.bff.csproj" Id="614a0c81-0f40-4519-a6f7-7c081e992520" />
+  </Folder>
+  <Folder Name="/0. example/shared/">
+    <Project Path="example/shared/mark.davison.example.shared.constants/mark.davison.example.shared.constants.csproj" Id="ccf5c5c3-d888-49d1-bdd5-04e53a1e594f" />
+    <Project Path="example/shared/mark.davison.example.shared.models.dto/mark.davison.example.shared.models.dto.csproj" Id="2a6b5043-ebe2-472d-bba8-70f34dcdcb61" />
+  </Folder>
+  <Folder Name="/0. example/web/">
+    <Project Path="example/web/mark.davison.example.web.components/mark.davison.example.web.components.csproj" Id="48637059-5aba-4031-b457-5abd05b41561" />
+    <Project Path="example/web/mark.davison.example.web.features/mark.davison.example.web.features.csproj" Id="c2646112-dc58-43d2-8266-bdb579a41150" />
+    <Project Path="example/web/mark.davison.example.web.ui/mark.davison.example.web.ui.csproj" Id="70b8041e-48bc-4018-9c28-d22cf93b6a94" />
+  </Folder>
   <Folder Name="/1. common/">
     <Project Path="common/mark.davison.common.abstractions/mark.davison.common.abstractions.csproj" Id="d90740fe-23de-4023-a243-b8bb5d3e0f7e" />
     <Project Path="common/mark.davison.common.authentication.server.abstractions/mark.davison.common.authentication.server.abstractions.csproj" Id="ad7bad18-fab7-45b2-b9c0-6fc39cbc1bc4" />

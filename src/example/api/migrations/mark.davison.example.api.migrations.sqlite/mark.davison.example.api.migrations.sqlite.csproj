@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\common\mark.davison.common.persistence.migrations.sqlite\mark.davison.common.persistence.migrations.sqlite.csproj" />
+    <ProjectReference Include="..\..\mark.davison.example.api.models.configuration\mark.davison.example.api.models.configuration.csproj" />
+    <ProjectReference Include="..\..\mark.davison.example.persistence\mark.davison.example.persistence.csproj" />
+  </ItemGroup>
+
+</Project>

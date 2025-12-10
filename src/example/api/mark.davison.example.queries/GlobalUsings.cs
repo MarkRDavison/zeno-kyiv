@@ -1,0 +1,10 @@
+﻿global using mark.davison.common.authentication.server.abstractions.Services;
+global using mark.davison.common.authentication.server.Configuration;
+global using mark.davison.common.persistence;
+global using mark.davison.common.server.abstractions.CQRS;
+global using mark.davison.common.server.Models;
+global using mark.davison.example.shared.models.dto.Scenarios.Queries.AdminSettings;
+global using mark.davison.example.shared.models.dto.Scenarios.Queries.Startup;
+global using mark.davison.example.shared.models.dto.Shared;
+global using Microsoft.EntityFrameworkCore;
+global using Microsoft.Extensions.Options;

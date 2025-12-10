@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\common\mark.davison.common.authentication.server\mark.davison.common.authentication.server.csproj" />
+    <ProjectReference Include="..\..\..\common\mark.davison.common.generators\mark.davison.common.generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\mark.davison.example.commands\mark.davison.example.commands.csproj" />
+    <ProjectReference Include="..\mark.davison.example.queries\mark.davison.example.queries.csproj" />
+    <ProjectReference Include="..\migrations\mark.davison.example.api.migrations.sqlite\mark.davison.example.api.migrations.sqlite.csproj" />
+  </ItemGroup>
+
+</Project>

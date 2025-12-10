@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\common\mark.davison.common.server\mark.davison.common.server.csproj" />
+    <ProjectReference Include="..\mark.davison.example.api.models.configuration\mark.davison.example.api.models.configuration.csproj" />
+  </ItemGroup>
+
+</Project>
